@@ -1,0 +1,68 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: toolora-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: Mine2026
+      MYSQL_DATABASE: toolora_db
+      MYSQL_ROOT_HOST: '%'
+      TZ: America/Sao_Paulo
+    ports:
+     # - "3306:3306"               # Se der erro de porta ocupada, mude para "3307:3306"
+      - "3307:3306"             # Alternativa caso 3306 esteja em uso
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: toolora-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+      - gradle-cache:/home/gradle/.gradle
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/toolora_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: Mine2026
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      JAVA_OPTS: "-Xmx512m"
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"          # ← Isso evita o erro de "docker" dentro do container
+    command: ["./gradlew", "bootRun", "--continuous", "--no-daemon"]
+    # O --continuous permite hot-reload ao editar código Java/Kotlin
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: toolora-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:8080
+
+volumes:
+  mysql-data:
+  gradle-cache:
+
+networks:
+  default:
+    name: toolora-net
