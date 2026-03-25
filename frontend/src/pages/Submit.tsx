@@ -8,8 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { User, Mail, Link as LinkIcon, Pencil } from "lucide-react";
 import { motion } from "framer-motion";
-import Cadastro from "./cadastro";
-import Login from "./login";
 
 // Schema Zod (sem categoria)
 const schema = z.object({
@@ -147,9 +145,6 @@ export default function Submit() {
           </Button>
         </form>
       </motion.div>
-
-      <Cadastro />
-      <Login />
     </div>
   );
 }
