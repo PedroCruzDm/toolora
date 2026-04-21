@@ -5,5 +5,8 @@ export type Tool = {
   screenshot: string;
   url: string;
   category: string;
+  tags: string[];
   likesCount: number;
+  status: 'pending' | 'approved' | 'rejected';
+  approved_at: string | null;
 };

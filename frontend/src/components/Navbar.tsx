@@ -1,13 +1,64 @@
 // src/components/Navbar.tsx
-import { Link } from "react-router-dom";
-import { PlusCircle, Moon, Sun } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { CheckCircle2, LogIn, PlusCircle, Moon, Sun, UserCircle2, ChevronDown, Settings, LogOut } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+type JwtPayload = {
+  email?: string;
+  name?: string;
+  isAdmin?: boolean;
+};
+
+type AuthSession = {
+  displayName: string;
+  isAdmin: boolean;
+};
+
+const readAuthUser = (): AuthSession | null => {
+  const storedUser = localStorage.getItem("user");
+  if (storedUser) {
+    try {
+      const parsed = JSON.parse(storedUser) as { name?: string; email?: string; isAdmin?: boolean };
+      const displayName = parsed.name ?? parsed.email ?? null;
+      if (!displayName) return null;
+      return {
+        displayName,
+        isAdmin: Boolean(parsed.isAdmin),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1])) as JwtPayload;
+    return {
+      displayName: payload.name ?? payload.email ?? "Usuário logado",
+      isAdmin: Boolean(payload.isAdmin),
+    };
+  } catch {
+    return {
+      displayName: "Usuário logado",
+      isAdmin: false,
+    };
+  }
+};
 
 export default function Navbar() {
+  const navigate = useNavigate();
+  const [authUser, setAuthUser] = useState<AuthSession | null>(() => readAuthUser());
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true' ||
            (!('darkMode' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const isLoggedIn = useMemo(() => Boolean(authUser), [authUser]);
+  const isAdmin = useMemo(() => Boolean(authUser?.isAdmin), [authUser]);
 
   useEffect(() => {
     if (darkMode) {
@@ -18,6 +69,36 @@ export default function Navbar() {
       localStorage.setItem('darkMode', 'false');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    const syncAuthState = () => setAuthUser(readAuthUser());
+
+    syncAuthState();
+    window.addEventListener("storage", syncAuthState);
+
+    return () => window.removeEventListener("storage", syncAuthState);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isMenuOpen]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setAuthUser(null);
+    setIsMenuOpen(false);
+    navigate("/login");
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-white dark:bg-gray-900 shadow-sm transition-colors">
@@ -33,6 +114,83 @@ export default function Navbar() {
           <Link to="/" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Início</Link>
           <Link to="/categorias" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Categorias</Link>
           
+          {isLoggedIn ? (
+            <div ref={menuRef} className="relative">
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className={`hidden md:flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                  isAdmin
+                    ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-900/70"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
+                }`}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span>{authUser?.displayName}</span>
+                <ChevronDown className="h-4 w-4" />
+              </button>
+
+              {isMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <UserCircle2 className="h-4 w-4" />
+                    <span>Perfil</span>
+                  </Link>
+                  <Link
+                    to="/settings"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span>Editar perfil</span>
+                  </Link>
+                  {isAdmin && (
+                    <>
+                      <Link
+                        to="/admin/users"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <span>Usuario</span>
+                      </Link>
+                      <Link
+                        to="/admin/pending-posts"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <span>Posts pendentes</span>
+                      </Link>
+                      <Link
+                        to="/admin/reviewed-posts"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <span>Posts revisados</span>
+                      </Link>                    </>
+                  )}
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sair</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="hidden md:flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-indigo-200 hover:text-indigo-600 dark:border-gray-700 dark:text-gray-200 dark:hover:border-indigo-500 dark:hover:text-indigo-300 transition-colors"
+            >
+              <LogIn className="h-4 w-4" />
+              Entrar
+            </Link>
+          )}
+          
           <Link 
             to="/submit" 
             className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-2xl hover:from-indigo-700 hover:to-purple-700 hover:scale-[1.03] hover:shadow-lg transition-all duration-300"
@@ -40,6 +198,68 @@ export default function Navbar() {
             <PlusCircle className="w-5 h-5" />
             Recomendar
           </Link>
+
+          {isLoggedIn && (
+            <div className="md:hidden">
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
+                  isAdmin
+                    ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-900/70"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
+                }`}
+              >
+                <UserCircle2 className="h-4 w-4" />
+                <ChevronDown className="h-4 w-4" />
+              </button>
+
+              {isMenuOpen && (
+                <div className="absolute right-6 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <UserCircle2 className="h-4 w-4" />
+                    <span>Perfil</span>
+                  </Link>
+                  <Link
+                    to="/settings"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span>Editar perfil</span>
+                  </Link>
+                  {isAdmin && (
+                    <>
+                      <Link
+                        to="/admin/users"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <span>Usuario</span>
+                      </Link>
+                      <Link
+                        to="/admin/pending-posts"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <span>Posts pendentes</span>
+                      </Link>
+                    </>
+                  )}
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sair</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Toggle Dark Mode */}
          <button

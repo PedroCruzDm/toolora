@@ -7,6 +7,7 @@ import {
   listMyTools,
   likeTool,
   listPendingTools,
+  listReviewedTools,
   approveTool,
   rejectTool
 } from '../controller/toolController';
@@ -23,6 +24,7 @@ router.post('/:id/like', authMiddleware, likeTool);
 
 // Admin
 router.get('/pending', authMiddleware, adminMiddleware, listPendingTools);
+router.get('/reviewed', authMiddleware, adminMiddleware, listReviewedTools);
 router.patch('/:id/approve', authMiddleware, adminMiddleware, approveTool);
 router.patch('/:id/reject', authMiddleware, adminMiddleware, rejectTool);
 

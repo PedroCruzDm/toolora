@@ -10,7 +10,8 @@ export function useSearch(tools: Tool[]) {
     return tools.filter(tool =>
       tool.name.toLowerCase().includes(lower) ||
       tool.description.toLowerCase().includes(lower) ||
-      tool.category.toLowerCase().includes(lower)
+      tool.category.toLowerCase().includes(lower) ||
+      tool.tags.some(tag => tag.toLowerCase().includes(lower))
     );
   }, [query, tools]);
 

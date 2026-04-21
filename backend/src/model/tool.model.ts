@@ -8,9 +8,10 @@ export interface Tool {
 	screenshot?: string;
 	url: string;
 	category: string;
+	tags: string[] | null;
 	likes_count: number;
 	status: ToolStatus;
-	approved_at?: Date;
+	approved_at?: Date | null;
 	created_at: Date;
 	updated_at: Date;
 }

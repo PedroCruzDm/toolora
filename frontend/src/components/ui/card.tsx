@@ -92,6 +92,22 @@ const ToolCard = React.forwardRef<HTMLDivElement, ToolCardProps>(
           <p className="text-base leading-relaxed text-muted-foreground line-clamp-3">
             {tool.description}
           </p>
+          {tool.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {tool.tags
+                .slice()
+                .sort((a, b) => a.localeCompare(b))
+                .slice(0, 4)
+                .map(tag => (
+                  <span
+                    key={tag}
+                    className="text-xs px-3 py-1 rounded-2xl bg-primary/10 text-primary font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+            </div>
+          )}
           <Button
             asChild
             className="w-full mt-4 py-7 text-lg font-medium rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.02] hover:shadow-xl transition-all duration-300 shadow-md"

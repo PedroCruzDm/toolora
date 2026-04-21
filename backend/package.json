@@ -2,7 +2,8 @@
   "name": "toolora-backend",
   "version": "1.0.0",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only server.ts",
+    "dev": "node ./node_modules/ts-node-dev/lib/bin.js --respawn --transpile-only server.ts",
+    "bootstrap:admin": "node ./node_modules/ts-node-dev/lib/bin.js --transpile-only src/scripts/bootstrapAdmin.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },
