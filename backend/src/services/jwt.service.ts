@@ -1,13 +1,19 @@
 import jwt from 'jsonwebtoken';
 
-const SECRET = process.env.JWT_SECRET;
+const SECRET: string = process.env.JWT_SECRET ?? '';
 
 if (!SECRET) {
   throw new Error('JWT_SECRET não configurado. Defina JWT_SECRET no ambiente.');
 }
 
-export function generateToken(userId: number, email: string, isAdmin: boolean): string {
-  return jwt.sign({ userId, email, isAdmin }, SECRET, { expiresIn: '10d' });
+export type JwtFlags = {
+  isOwner?: boolean;
+  isAdmin?: boolean;
+  isModerator?: boolean;
+};
+
+export function generateToken(userId: number, email: string, flags: JwtFlags): string {
+  return jwt.sign({ userId, email, ...flags }, SECRET, { expiresIn: '10d' });
 }
 
 export function verifyToken(token: string) {

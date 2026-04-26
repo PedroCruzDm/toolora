@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type ClipboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { CheckCircle2, Clock3, ExternalLink, RefreshCcw, ShieldX, Sparkles } from "lucide-react";
+import { hasModeratorAccess, readAuthSession } from "@/lib/auth";
 
 type PendingPost = {
   id: number;
   name: string;
   description: string;
+  screenshot: string | null;
   url: string;
   category: string;
   tags: string[];
@@ -16,28 +18,24 @@ type PendingPost = {
   created_at: string;
 };
 
-const isCurrentUserAdmin = (): boolean => {
-  try {
-    const stored = localStorage.getItem("user");
-    if (!stored) return false;
-    const parsed = JSON.parse(stored) as { isAdmin?: boolean };
-    return Boolean(parsed.isAdmin);
-  } catch {
-    return false;
-  }
-};
-
 export default function AdminPendingPosts() {
   const navigate = useNavigate();
+  const session = useMemo(() => readAuthSession(), []);
   const [posts, setPosts] = useState<PendingPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [savingImageId, setSavingImageId] = useState<number | null>(null);
+  const [uploadingImageId, setUploadingImageId] = useState<number | null>(null);
+  const [screenshotEdits, setScreenshotEdits] = useState<Record<number, string>>({});
 
   const fetchPendingPosts = async () => {
     setLoading(true);
     try {
       const response = await api.get<PendingPost[]>("/tools/pending");
       setPosts(response.data);
+      setScreenshotEdits(
+        Object.fromEntries(response.data.map((post) => [post.id, post.screenshot ?? ""]))
+      );
     } catch (error) {
       const message = axios.isAxiosError(error)
         ? error.response?.data?.error ?? "Não foi possível listar posts pendentes."
@@ -49,14 +47,14 @@ export default function AdminPendingPosts() {
   };
 
   useEffect(() => {
-    if (!isCurrentUserAdmin()) {
+    if (!hasModeratorAccess(session)) {
       toast.error("Acesso restrito a administradores.");
       navigate("/");
       return;
     }
 
     fetchPendingPosts();
-  }, [navigate]);
+  }, [navigate, session]);
 
   const handleDecision = async (postId: number, action: "approve" | "reject") => {
     setProcessingId(postId);
@@ -71,6 +69,80 @@ export default function AdminPendingPosts() {
       toast.error(message);
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const handleScreenshotSave = async (postId: number) => {
+    const screenshot = (screenshotEdits[postId] ?? "").trim();
+    setSavingImageId(postId);
+    try {
+      await api.patch(`/tools/${postId}/screenshot`, {
+        screenshot: screenshot || null,
+      });
+      toast.success("Imagem atualizada com sucesso.");
+      await fetchPendingPosts();
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error ?? "Não foi possível salvar a imagem."
+        : "Não foi possível salvar a imagem.";
+      toast.error(message);
+    } finally {
+      setSavingImageId(null);
+    }
+  };
+
+  const handleAdminImageUpload = async (postId: number, file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Envie apenas arquivo de imagem.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 5MB.");
+      return;
+    }
+
+    setUploadingImageId(postId);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await api.post<{ url: string }>("/tools/upload-image", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setScreenshotEdits((current) => ({
+        ...current,
+        [postId]: response.data.url,
+      }));
+
+      toast.success("Imagem enviada. Clique em 'Aplicar imagem' para salvar no post.");
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error ?? "Não foi possível enviar a imagem."
+        : "Não foi possível enviar a imagem.";
+      toast.error(message);
+    } finally {
+      setUploadingImageId(null);
+    }
+  };
+
+  const handleLocalImageChange = async (postId: number, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await handleAdminImageUpload(postId, file);
+    event.target.value = "";
+  };
+
+  const handlePasteImage = async (postId: number, event: ClipboardEvent<HTMLDivElement>) => {
+    const items = event.clipboardData?.items ?? [];
+    for (const item of items) {
+      if (!item.type.startsWith("image/")) continue;
+      const file = item.getAsFile();
+      if (!file) continue;
+      event.preventDefault();
+      await handleAdminImageUpload(postId, file);
+      return;
     }
   };
 
@@ -174,6 +246,74 @@ export default function AdminPendingPosts() {
                   </div>
 
                   <div className="px-6 py-6">
+                    <div
+                      className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50"
+                      onPaste={(event) => handlePasteImage(post.id, event)}
+                      tabIndex={0}
+                    >
+                      <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                        Imagem da postagem (aplicada pelo admin)
+                      </p>
+                      <div className="grid gap-4">
+                        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-950">
+                          {screenshotEdits[post.id] ? (
+                            <img
+                              src={screenshotEdits[post.id]}
+                              alt={`Preview da imagem de ${post.name}`}
+                              className="h-56 w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-56 items-center justify-center px-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                              Nenhuma imagem aplicada ainda. Envie um arquivo, cole um print ou adicione um link.
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid gap-3">
+                          <input
+                            value={screenshotEdits[post.id] ?? ""}
+                            onChange={(event) =>
+                              setScreenshotEdits((current) => ({
+                                ...current,
+                                [post.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="Link da imagem"
+                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                          />
+                          <div className="flex flex-wrap items-center gap-3">
+                          <label className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900 cursor-pointer">
+                            {uploadingImageId === post.id ? "Enviando..." : "Enviar arquivo"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) => handleLocalImageChange(post.id, event)}
+                              className="hidden"
+                              disabled={uploadingImageId === post.id}
+                            />
+                          </label>
+                          <button
+                            onClick={() => handleScreenshotSave(post.id)}
+                            disabled={savingImageId === post.id}
+                            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                          >
+                            {savingImageId === post.id ? "Aplicando imagem..." : "Aplicar imagem"}
+                          </button>
+                          {screenshotEdits[post.id] && (
+                            <a
+                              href={screenshotEdits[post.id]}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                              Abrir preview
+                            </a>
+                          )}
+                        </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <p className="text-sm leading-6 text-slate-700 dark:text-slate-300">{post.description}</p>
 
                     <div className="mt-5 flex flex-wrap gap-2">

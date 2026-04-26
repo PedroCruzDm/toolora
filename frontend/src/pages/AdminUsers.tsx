@@ -3,57 +3,57 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
-import { Search, Users, Shield, Clock3 } from "lucide-react";
+import { Search, Users, Shield, Clock3, X } from "lucide-react";
+import { hasModeratorAccess, readAuthSession } from "@/lib/auth";
 
 type AdminUser = {
   id: number;
   name: string;
   email: string;
+  isOwner: boolean;
   isAdmin: boolean;
+  isModerator: boolean;
+  isBanned: boolean;
   createdAt: string;
-};
-
-const isCurrentUserAdmin = (): boolean => {
-  try {
-    const stored = localStorage.getItem("user");
-    if (!stored) return false;
-    const parsed = JSON.parse(stored) as { isAdmin?: boolean };
-    return Boolean(parsed.isAdmin);
-  } catch {
-    return false;
-  }
 };
 
 export default function AdminUsers() {
   const navigate = useNavigate();
+  const session = useMemo(() => readAuthSession(), []);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [modalTab, setModalTab] = useState<"warning" | "request-ban" | "ban" | "profile">("warning");
+  const [banReason, setBanReason] = useState("");
+  const [requestBanReason, setRequestBanReason] = useState("");
+  const [warningMessage, setWarningMessage] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get<AdminUser[]>('/admin/users');
+      setUsers(response.data);
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error ?? 'Não foi possível listar usuários.'
+        : 'Não foi possível listar usuários.';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!isCurrentUserAdmin()) {
-      toast.error("Acesso restrito a administradores.");
+    if (!hasModeratorAccess(session)) {
+      toast.error("Acesso restrito à moderação.");
       navigate("/");
       return;
     }
 
-    const fetchUsers = async () => {
-      setLoading(true);
-      try {
-        const response = await api.get<AdminUser[]>("/auth/users");
-        setUsers(response.data);
-      } catch (error) {
-        const message = axios.isAxiosError(error)
-          ? error.response?.data?.error ?? "Não foi possível listar usuários."
-          : "Não foi possível listar usuários.";
-        toast.error(message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUsers();
-  }, [navigate]);
+    loadUsers();
+  }, [navigate, session]);
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -61,16 +61,119 @@ export default function AdminUsers() {
     if (!normalizedQuery) return users;
 
     return users.filter((user) => {
+      const roleLabel = user.isOwner
+        ? "owner"
+        : user.isAdmin
+          ? "admin"
+          : user.isModerator
+            ? "moderador"
+            : user.isBanned
+              ? "banido"
+              : "usuario";
+
       return (
         user.name.toLowerCase().includes(normalizedQuery) ||
         user.email.toLowerCase().includes(normalizedQuery) ||
-        (user.isAdmin ? "admin" : "usuario").includes(normalizedQuery)
+        roleLabel.includes(normalizedQuery)
       );
     });
   }, [query, users]);
 
   const totalAdmins = useMemo(() => users.filter((user) => user.isAdmin).length, [users]);
   const latestUser = useMemo(() => users[0] ?? null, [users]);
+  const selectedUser = useMemo(
+    () => users.find((user) => user.id === selectedUserId) ?? null,
+    [selectedUserId, users]
+  );
+
+  const openUserModal = (userId: number) => {
+    setSelectedUserId(userId);
+    setModalTab('warning');
+    setWarningMessage('');
+    setRequestBanReason('');
+    setBanReason('');
+  };
+
+  const closeUserModal = () => {
+    setSelectedUserId(null);
+    setActionLoading(false);
+  };
+
+  const handleBanUser = async () => {
+    if (!selectedUser || !session?.isOwner) return;
+
+    if (!banReason.trim()) {
+      toast.error("Informe o motivo do banimento.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await api.post(`/admin/users/${selectedUser.id}/ban`, { reason: banReason });
+      toast.success("Usuário banido.");
+      await loadUsers();
+      closeUserModal();
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error ?? "Nao foi possivel banir o usuario."
+        : "Nao foi possivel banir o usuario.";
+      toast.error(message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSendWarning = async () => {
+    if (!selectedUser || !(session?.isOwner || session?.isAdmin || session?.isModerator)) return;
+
+    if (!warningMessage.trim()) {
+      toast.error("Escreva a mensagem de aviso.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await api.post(`/admin/users/${selectedUser.id}/warning`, { message: warningMessage });
+      toast.success("Aviso enviado.");
+      setWarningMessage('');
+      closeUserModal();
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error ?? "Nao foi possivel enviar o aviso."
+        : "Nao foi possivel enviar o aviso.";
+      toast.error(message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRequestBan = async () => {
+    if (!selectedUser || !(session?.isOwner || session?.isAdmin || session?.isModerator)) return;
+
+    if (!requestBanReason.trim()) {
+      toast.error('Escreva o motivo da solicitação de banimento.');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await api.post('/admin/requests', {
+        requestType: 'ban_user',
+        targetUserId: selectedUser.id,
+        reason: requestBanReason,
+      });
+      toast.success('Solicitação enviada para análise do owner.');
+      setRequestBanReason('');
+      closeUserModal();
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error ?? 'Nao foi possivel enviar a solicitacao.'
+        : 'Nao foi possivel enviar a solicitacao.';
+      toast.error(message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-28 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
@@ -154,18 +257,25 @@ export default function AdminUsers() {
                 {filteredUsers.map((user, index) => (
                   <tr
                     key={user.id}
-                    className={`border-t border-slate-100 dark:border-slate-900 ${
-                      index % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50/60 dark:bg-slate-900/40"
+                    onClick={() => openUserModal(user.id)}
+                    className={`cursor-pointer border-t border-slate-100 transition hover:bg-slate-100/80 dark:border-slate-900 dark:hover:bg-slate-900/70 ${
+                      selectedUserId === user.id
+                        ? "bg-sky-50 dark:bg-sky-950/40"
+                        : index % 2 === 0
+                          ? "bg-white dark:bg-slate-950"
+                          : "bg-slate-50/60 dark:bg-slate-900/40"
                     }`}
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-black ${user.isAdmin ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-black ${user.isOwner || user.isAdmin ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" : user.isModerator ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" : user.isBanned ? "bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-200" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
                           {user.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-slate-900 dark:text-white">{user.name}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">{user.isAdmin ? "Administrador" : "Usuário comum"}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {user.isOwner ? "Owner" : user.isAdmin ? "Administrador" : user.isModerator ? "Moderador" : user.isBanned ? "Banido" : "Usuário comum"}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -173,12 +283,16 @@ export default function AdminUsers() {
                     <td className="px-6 py-4 text-sm">
                       <span
                         className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                          user.isAdmin
+                          user.isOwner || user.isAdmin
                             ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                            : user.isModerator
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                              : user.isBanned
+                                ? "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                             : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                         }`}
                       >
-                        {user.isAdmin ? "Admin" : "Usuario"}
+                        {user.isOwner ? "Owner" : user.isAdmin ? "Admin" : user.isModerator ? "Moderador" : user.isBanned ? "Banido" : "Usuario"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
@@ -198,6 +312,93 @@ export default function AdminUsers() {
           )}
         </div>
       )}
+
+        {selectedUser && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 px-4">
+            <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-950 p-6 text-slate-100 shadow-2xl">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold">Ações para {selectedUser.name}</h2>
+                  <p className="text-sm text-slate-400">{selectedUser.email}</p>
+                </div>
+                <button
+                  onClick={closeUserModal}
+                  className="rounded-full border border-slate-700 p-2 text-slate-300 hover:bg-slate-900"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <button onClick={() => setModalTab('warning')} className={`rounded-xl px-3 py-2 text-xs font-semibold ${modalTab === 'warning' ? 'bg-amber-600 text-white' : 'bg-slate-900 text-slate-300'}`}>Enviar aviso</button>
+                <button onClick={() => setModalTab('request-ban')} className={`rounded-xl px-3 py-2 text-xs font-semibold ${modalTab === 'request-ban' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-300'}`}>Solicitar ban</button>
+                <button onClick={() => setModalTab('ban')} className={`rounded-xl px-3 py-2 text-xs font-semibold ${modalTab === 'ban' ? 'bg-red-600 text-white' : 'bg-slate-900 text-slate-300'}`}>Banir</button>
+                <button onClick={() => setModalTab('profile')} className={`rounded-xl px-3 py-2 text-xs font-semibold ${modalTab === 'profile' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-300'}`}>Visualizar perfil</button>
+              </div>
+
+              {modalTab === 'warning' && (
+                <div className="space-y-3">
+                  <textarea
+                    value={warningMessage}
+                    onChange={(event) => setWarningMessage(event.target.value)}
+                    rows={5}
+                    placeholder="Mensagem de aviso"
+                    className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none"
+                  />
+                  <button onClick={handleSendWarning} disabled={actionLoading} className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                    {actionLoading ? 'Enviando...' : 'Enviar aviso'}
+                  </button>
+                </div>
+              )}
+
+              {modalTab === 'request-ban' && (
+                <div className="space-y-3">
+                  <textarea
+                    value={requestBanReason}
+                    onChange={(event) => setRequestBanReason(event.target.value)}
+                    rows={5}
+                    placeholder="Motivo da solicitação de banimento"
+                    className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none"
+                  />
+                  <button onClick={handleRequestBan} disabled={actionLoading} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                    {actionLoading ? 'Enviando...' : 'Solicitar ban'}
+                  </button>
+                </div>
+              )}
+
+              {modalTab === 'ban' && (
+                <div className="space-y-3">
+                  {session?.isOwner ? (
+                    <>
+                      <textarea
+                        value={banReason}
+                        onChange={(event) => setBanReason(event.target.value)}
+                        rows={5}
+                        placeholder="Motivo do banimento"
+                        className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none"
+                      />
+                      <button onClick={handleBanUser} disabled={actionLoading} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                        {actionLoading ? 'Banindo...' : 'Banir usuário'}
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-400">Somente o owner pode banir diretamente. Use "Solicitar ban".</p>
+                  )}
+                </div>
+              )}
+
+              {modalTab === 'profile' && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm">
+                  <p><span className="text-slate-400">Nome:</span> {selectedUser.name}</p>
+                  <p className="mt-1"><span className="text-slate-400">Email:</span> {selectedUser.email}</p>
+                  <p className="mt-1"><span className="text-slate-400">Perfil:</span> {selectedUser.isOwner ? 'Owner' : selectedUser.isAdmin ? 'Admin' : selectedUser.isModerator ? 'Moderador' : 'Usuário'}</p>
+                  <p className="mt-1"><span className="text-slate-400">Status:</span> {selectedUser.isBanned ? 'Banido' : 'Ativo'}</p>
+                  <p className="mt-1"><span className="text-slate-400">Cadastro:</span> {new Date(selectedUser.createdAt).toLocaleString('pt-BR')}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

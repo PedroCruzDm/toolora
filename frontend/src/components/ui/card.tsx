@@ -1,7 +1,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Heart, ExternalLink } from "lucide-react";
+import { Heart, ExternalLink, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tool } from "@/types";
 
@@ -55,10 +55,12 @@ CardFooter.displayName = "CardFooter";
 // ToolCard component
 interface ToolCardProps extends React.HTMLAttributes<HTMLDivElement> {
   tool: Tool;
+  onToggleLike?: (toolId: string) => void;
+  onToggleFavorite?: (toolId: string) => void;
 }
 
 const ToolCard = React.forwardRef<HTMLDivElement, ToolCardProps>(
-  ({ className, tool, ...props }, ref) => {
+  ({ className, tool, onToggleLike, onToggleFavorite, ...props }, ref) => {
     return (
       <Card
         ref={ref}
@@ -80,15 +82,43 @@ const ToolCard = React.forwardRef<HTMLDivElement, ToolCardProps>(
             {tool.category}
           </div>
           <div className="absolute top-5 left-5 flex items-center gap-2 px-4 py-1.5 bg-black/60 dark:bg-gray-800/70 backdrop-blur-md text-white dark:text-gray-100 text-sm font-medium rounded-full">
-            <Heart className="h-4 w-4 fill-red-500 stroke-red-500" />
+            <Heart className={cn("h-4 w-4", tool.isLiked ? "fill-red-500 stroke-red-500" : "stroke-white")} />
             {tool.likesCount.toLocaleString()}
           </div>
         </div>
 
         <div className="p-7 space-y-5">
-          <h3 className="text-2xl font-bold leading-tight text-foreground line-clamp-2">
-            {tool.name}
-          </h3>
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-2xl font-bold leading-tight text-foreground line-clamp-2">
+              {tool.name}
+            </h3>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label={tool.isLiked ? "Remover curtida" : "Curtir"}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onToggleLike?.(tool.id);
+                }}
+                className="rounded-full p-2 text-muted-foreground transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
+              >
+                <Heart className={cn("h-5 w-5", tool.isLiked && "fill-red-500 stroke-red-500")} />
+              </button>
+              <button
+                type="button"
+                aria-label={tool.isFavorited ? "Remover favorito" : "Favoritar"}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onToggleFavorite?.(tool.id);
+                }}
+                className="rounded-full p-2 text-muted-foreground transition hover:bg-amber-100 hover:text-amber-600 dark:hover:bg-amber-900/30"
+              >
+                <Bookmark className={cn("h-5 w-5", tool.isFavorited && "fill-amber-500 stroke-amber-500")} />
+              </button>
+            </div>
+          </div>
           <p className="text-base leading-relaxed text-muted-foreground line-clamp-3">
             {tool.description}
           </p>

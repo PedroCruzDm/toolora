@@ -4,15 +4,19 @@
   "scripts": {
     "dev": "node ./node_modules/ts-node-dev/lib/bin.js --respawn --transpile-only server.ts",
     "bootstrap:admin": "node ./node_modules/ts-node-dev/lib/bin.js --transpile-only src/scripts/bootstrapAdmin.ts",
+    "test:smoke": "node ./scripts/api-smoke.js",
+    "test:security": "node ./scripts/security-smoke.js",
     "build": "tsc",
     "start": "node dist/server.js"
   },
   "dependencies": {
+    "@types/multer": "^2.1.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.1.1",
     "mysql2": "^3.20.0"
   },
   "devDependencies": {

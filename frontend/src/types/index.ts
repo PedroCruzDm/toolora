@@ -7,6 +7,8 @@ export type Tool = {
   category: string;
   tags: string[];
   likesCount: number;
+  isLiked: boolean;
+  isFavorited: boolean;
   status: 'pending' | 'approved' | 'rejected';
   approved_at: string | null;
 };

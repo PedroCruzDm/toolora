@@ -12,6 +12,7 @@ type LoginResponse = {
 		name: string;
 		email: string;
 		isAdmin?: boolean;
+		profileImage?: string | null;
 	};
 };
 

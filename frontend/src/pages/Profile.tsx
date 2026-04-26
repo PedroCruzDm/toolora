@@ -9,6 +9,7 @@ type UserData = {
   id: number;
   name: string;
   email: string;
+  profileImage?: string | null;
   created_at?: string;
 };
 
@@ -16,6 +17,7 @@ type JwtPayload = {
   userId?: number;
   email?: string;
   name?: string;
+  profileImage?: string | null;
 };
 
 type Recommendation = {
@@ -25,6 +27,23 @@ type Recommendation = {
   category: string;
   status: "pending" | "approved" | "rejected";
   approved_at: string | null;
+};
+
+type FavoriteTool = {
+  id: number;
+  name: string;
+  category: string;
+  url: string;
+  likes_count: number;
+};
+
+type UserMessage = {
+  id: number;
+  senderRole: "owner" | "admin" | "moderator" | "system";
+  message: string;
+  messageType: "warning" | "info";
+  readAt: string | null;
+  createdAt: string;
 };
 
 const statusMap: Record<Recommendation["status"], { label: string; className: string }> = {
@@ -48,6 +67,12 @@ export default function Profile() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(true);
   const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<FavoriteTool[]>([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(true);
+  const [favoritesError, setFavoritesError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<UserMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(true);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -69,6 +94,7 @@ export default function Profile() {
             id: payload.userId ?? 0,
             name: payload.name ?? "",
             email: payload.email ?? "",
+            profileImage: payload.profileImage ?? null,
           });
         } catch {
           navigate("/login");
@@ -94,6 +120,42 @@ export default function Profile() {
     };
 
     loadRecommendations();
+  }, []);
+
+  useEffect(() => {
+    const loadFavorites = async () => {
+      setLoadingFavorites(true);
+      setFavoritesError(null);
+
+      try {
+        const response = await api.get<FavoriteTool[]>("/tools/favorites");
+        setFavorites(response.data);
+      } catch {
+        setFavoritesError("Não foi possível carregar seus favoritos.");
+      } finally {
+        setLoadingFavorites(false);
+      }
+    };
+
+    loadFavorites();
+  }, []);
+
+  useEffect(() => {
+    const loadMessages = async () => {
+      setLoadingMessages(true);
+      setMessagesError(null);
+
+      try {
+        const response = await api.get<UserMessage[]>('/messages/me');
+        setMessages(response.data);
+      } catch {
+        setMessagesError('Não foi possível carregar seus avisos.');
+      } finally {
+        setLoadingMessages(false);
+      }
+    };
+
+    loadMessages();
   }, []);
 
   const handleLogout = () => {
@@ -136,8 +198,12 @@ export default function Profile() {
 
         <Card className="p-8 space-y-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center">
-              <User className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center overflow-hidden border border-white/10">
+              {user.profileImage ? (
+                <img src={user.profileImage} alt={user.name} className="h-full w-full object-cover" />
+              ) : (
+                <User className="w-8 h-8 text-white" />
+              )}
             </div>
             <div>
               <h2 className="text-2xl font-bold text-foreground">{user.name}</h2>
@@ -236,6 +302,87 @@ export default function Profile() {
                       Aprovada em {new Date(item.approved_at).toLocaleDateString("pt-BR")}
                     </p>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-8 mt-8 space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Avisos</h2>
+            <p className="text-muted-foreground mt-2">Mensagens enviadas pela moderação.</p>
+          </div>
+
+          {loadingMessages && (
+            <div className="py-8 text-sm text-muted-foreground">Carregando avisos...</div>
+          )}
+
+          {!loadingMessages && messagesError && (
+            <div className="py-8 text-sm text-red-600 dark:text-red-400">{messagesError}</div>
+          )}
+
+          {!loadingMessages && !messagesError && messages.length === 0 && (
+            <div className="py-8 text-sm text-muted-foreground">Você não recebeu avisos.</div>
+          )}
+
+          {!loadingMessages && !messagesError && messages.length > 0 && (
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div key={message.id} className="rounded-xl border border-border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground capitalize">{message.senderRole}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(message.createdAt).toLocaleString('pt-BR')}</p>
+                    </div>
+                    <span className="rounded-full border px-3 py-1 text-xs font-semibold text-amber-700 border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                      {message.messageType === 'warning' ? 'Aviso' : 'Info'}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground leading-6">{message.message}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-8 mt-8 space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Meus Favoritos</h2>
+            <p className="text-muted-foreground mt-2">Ferramentas que você marcou para acessar depois.</p>
+          </div>
+
+          {loadingFavorites && (
+            <div className="py-8 text-sm text-muted-foreground">Carregando favoritos...</div>
+          )}
+
+          {!loadingFavorites && favoritesError && (
+            <div className="py-8 text-sm text-red-600 dark:text-red-400">{favoritesError}</div>
+          )}
+
+          {!loadingFavorites && !favoritesError && favorites.length === 0 && (
+            <div className="py-8 text-sm text-muted-foreground">Você ainda não favoritou nenhuma ferramenta.</div>
+          )}
+
+          {!loadingFavorites && !favoritesError && favorites.length > 0 && (
+            <div className="space-y-4">
+              {favorites.map((item) => (
+                <div key={item.id} className="rounded-xl border border-border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-base font-semibold text-foreground">{item.name}</p>
+                      <p className="text-sm text-muted-foreground">{item.category}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{item.likes_count} curtidas</p>
+                  </div>
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
+                  >
+                    Acessar ferramenta
+                  </a>
                 </div>
               ))}
             </div>

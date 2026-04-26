@@ -3,11 +3,26 @@ import bcrypt from 'bcryptjs';
 import { generateToken } from '../services/jwt.service';
 import pool from '../config/db';
 
+const mapAuthUser = (user: any) => ({
+  id: user.id,
+  name: user.username,
+  email: user.email,
+  isOwner: Boolean(user.is_owner),
+  isAdmin: Boolean(user.is_admin),
+  isModerator: Boolean(user.is_moderator),
+  isBanned: Boolean(user.is_banned),
+  profileImage: user.profile_image ?? null,
+});
+
 export const register = async (req: Request, res: Response) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, profileImage } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+  }
+
+  if (profileImage && typeof profileImage !== 'string') {
+    return res.status(400).json({ error: 'Imagem de perfil inválida' });
   }
 
   try {
@@ -23,16 +38,16 @@ export const register = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result] = await pool.execute(
-      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-      [name, email, hashedPassword]
+      'INSERT INTO users (username, email, password, profile_image) VALUES (?, ?, ?, ?)',
+      [name, email, hashedPassword, profileImage ?? null]
     );
 
     const userId = (result as any).insertId as number;
-    const token = generateToken(userId, email, false);
+    const token = generateToken(userId, email, { isOwner: false, isAdmin: false, isModerator: false });
 
     return res.status(201).json({
       token,
-      user: { id: userId, name, email, isAdmin: false },
+      user: { id: userId, name, email, isOwner: false, isAdmin: false, isModerator: false, isBanned: false, profileImage: profileImage ?? null },
     });
   } catch (error) {
     return res.status(500).json({ error: 'Erro interno ao criar conta' });
@@ -48,7 +63,7 @@ export const login = async (req: Request, res: Response) => {
 
   try {
     const [rows] = await pool.execute(
-      'SELECT id, username, email, password, is_admin FROM users WHERE email = ? LIMIT 1',
+      'SELECT id, username, email, password, is_owner, is_admin, is_moderator, is_banned, profile_image FROM users WHERE email = ? LIMIT 1',
       [email]
     );
 
@@ -62,11 +77,19 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
-    const token = generateToken(user.id, user.email, Boolean(user.is_admin));
+    if (user.is_banned) {
+      return res.status(403).json({ error: 'Sua conta está bloqueada.' });
+    }
+
+    const token = generateToken(user.id, user.email, {
+      isOwner: Boolean(user.is_owner),
+      isAdmin: Boolean(user.is_admin),
+      isModerator: Boolean(user.is_moderator),
+    });
 
     return res.json({
       token,
-      user: { id: user.id, name: user.username, email: user.email, isAdmin: Boolean(user.is_admin) },
+      user: mapAuthUser(user),
     });
   } catch (error) {
     return res.status(500).json({ error: 'Erro interno ao fazer login' });
@@ -75,7 +98,7 @@ export const login = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   const userId = req.params.id;
-  const { name, email, currentPassword, newPassword } = req.body;
+  const { name, email, currentPassword, newPassword, profileImage } = req.body;
   const authUser = (req as any).user;
 
   if (!authUser || authUser.userId !== parseInt(userId)) {
@@ -86,9 +109,13 @@ export const updateUser = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Nome e email são obrigatórios' });
   }
 
+  if (profileImage !== undefined && profileImage !== null && typeof profileImage !== 'string') {
+    return res.status(400).json({ error: 'Imagem de perfil inválida' });
+  }
+
   try {
     const [userRows] = await pool.execute(
-      'SELECT password FROM users WHERE id = ? LIMIT 1',
+      'SELECT password, profile_image, is_owner, is_admin, is_moderator, is_banned FROM users WHERE id = ? LIMIT 1',
       [userId]
     );
 
@@ -111,6 +138,11 @@ export const updateUser = async (req: Request, res: Response) => {
     const updates: any = { username: name, email };
     const params: any[] = [name, email];
 
+    if (profileImage !== undefined) {
+      updates.profile_image = profileImage;
+      params.push(profileImage);
+    }
+
     if (newPassword) {
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       updates.password = hashedPassword;
@@ -126,7 +158,16 @@ export const updateUser = async (req: Request, res: Response) => {
 
     return res.json({
       message: 'Conta atualizada com sucesso',
-      user: { id: userId, name, email },
+      user: {
+        id: userId,
+        name,
+        email,
+        isOwner: Boolean(user.is_owner),
+        isAdmin: Boolean(user.is_admin),
+        isModerator: Boolean(user.is_moderator),
+        isBanned: Boolean(user.is_banned),
+        profileImage: profileImage ?? (user.profile_image ?? null),
+      },
     });
   } catch (error) {
     return res.status(500).json({ error: 'Erro interno ao atualizar conta' });
@@ -173,7 +214,7 @@ export const deleteUser = async (req: Request, res: Response) => {
 export const listUsers = async (_req: Request, res: Response) => {
   try {
     const [rows] = await pool.execute(
-      'SELECT id, username, email, is_admin, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, username, email, is_owner, is_admin, is_moderator, is_banned, profile_image, created_at FROM users ORDER BY created_at DESC'
     );
 
     return res.json(
@@ -181,7 +222,11 @@ export const listUsers = async (_req: Request, res: Response) => {
         id: user.id,
         name: user.username,
         email: user.email,
+        isOwner: Boolean(user.is_owner),
         isAdmin: Boolean(user.is_admin),
+        isModerator: Boolean(user.is_moderator),
+        isBanned: Boolean(user.is_banned),
+        profileImage: user.profile_image ?? null,
         createdAt: user.created_at,
       }))
     );

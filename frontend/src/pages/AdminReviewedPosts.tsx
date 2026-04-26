@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { CheckCircle2, ExternalLink, RefreshCcw, ShieldX, Sparkles } from "lucide-react";
+import { hasModeratorAccess, readAuthSession } from "@/lib/auth";
 
 type ReviewedPost = {
   id: number;
@@ -16,26 +17,20 @@ type ReviewedPost = {
   created_at: string;
   status: "approved" | "rejected";
   approved_at?: string;
-};
-
-const isCurrentUserAdmin = (): boolean => {
-  try {
-    const stored = localStorage.getItem("user");
-    if (!stored) return false;
-    const parsed = JSON.parse(stored) as { isAdmin?: boolean };
-    return Boolean(parsed.isAdmin);
-  } catch {
-    return false;
-  }
+  blocked_by_owner?: boolean;
+  blocked_reason?: string | null;
+  blocked_at?: string | null;
 };
 
 type TabType = "approved" | "rejected";
 
 export default function AdminReviewedPosts() {
   const navigate = useNavigate();
+  const session = useMemo(() => readAuthSession(), []);
   const [activeTab, setActiveTab] = useState<TabType>("approved");
   const [posts, setPosts] = useState<ReviewedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [blockingPostId, setBlockingPostId] = useState<number | null>(null);
 
   const fetchReviewedPosts = async () => {
     setLoading(true);
@@ -53,14 +48,14 @@ export default function AdminReviewedPosts() {
   };
 
   useEffect(() => {
-    if (!isCurrentUserAdmin()) {
+    if (!hasModeratorAccess(session)) {
       toast.error("Acesso restrito a administradores.");
       navigate("/");
       return;
     }
 
     fetchReviewedPosts();
-  }, [navigate, activeTab]);
+  }, [navigate, activeTab, session]);
 
   const getStatusBadgeColor = (status: string) => {
     return status === "approved"
@@ -70,6 +65,34 @@ export default function AdminReviewedPosts() {
 
   const getStatusLabel = (status: string) => {
     return status === "approved" ? "Aprovado" : "Recusado";
+  };
+
+  const handleToggleBlock = async (post: ReviewedPost) => {
+    if (!session?.isOwner) {
+      toast.error("Apenas o owner pode bloquear ou desbloquear posts aprovados.");
+      return;
+    }
+
+    setBlockingPostId(post.id);
+    try {
+      if (post.blocked_by_owner) {
+        await api.post(`/admin/posts/${post.id}/unblock`);
+        toast.success("Post desbloqueado.");
+      } else {
+        const reason = window.prompt("Motivo do bloqueio:", post.blocked_reason ?? "") ?? "";
+        await api.post(`/admin/posts/${post.id}/block`, { reason: reason.trim() || undefined });
+        toast.success("Post bloqueado.");
+      }
+
+      await fetchReviewedPosts();
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error ?? "Não foi possível atualizar o bloqueio do post."
+        : "Não foi possível atualizar o bloqueio do post.";
+      toast.error(message);
+    } finally {
+      setBlockingPostId(null);
+    }
   };
 
   return (
@@ -222,6 +245,30 @@ export default function AdminReviewedPosts() {
                       <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">Admin</p>
                     </div>
                   </div>
+
+                  {post.status === "approved" && (
+                    <div className="mt-5 space-y-2">
+                      {post.blocked_by_owner && (
+                        <p className="text-xs font-semibold text-red-600 dark:text-red-400">
+                          Bloqueado pelo owner{post.blocked_reason ? `: ${post.blocked_reason}` : "."}
+                        </p>
+                      )}
+
+                      {session?.isOwner && (
+                        <button
+                          onClick={() => handleToggleBlock(post)}
+                          disabled={blockingPostId === post.id}
+                          className={`rounded-xl px-4 py-2 text-xs font-semibold text-white ${post.blocked_by_owner ? "bg-emerald-600" : "bg-red-600"} disabled:opacity-60`}
+                        >
+                          {blockingPostId === post.id
+                            ? "Salvando..."
+                            : post.blocked_by_owner
+                              ? "Desbloquear post"
+                              : "Bloquear post"}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </article>
             ))}

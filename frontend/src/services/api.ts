@@ -16,7 +16,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Intercepta erros de resposta (ex: token expirado → logout)
 api.interceptors.response.use(
   (response) => response,
   (error) => {

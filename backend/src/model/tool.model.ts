@@ -10,6 +10,8 @@ export interface Tool {
 	category: string;
 	tags: string[] | null;
 	likes_count: number;
+	is_liked?: boolean;
+	is_favorited?: boolean;
 	status: ToolStatus;
 	approved_at?: Date | null;
 	created_at: Date;

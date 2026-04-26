@@ -3,6 +3,8 @@ import cors from 'cors';
 import * as dotenv from 'dotenv';
 
 import authRoutes from './src/routes/auth.routes';
+import adminRoutes from './src/routes/admin.routes';
+import messageRoutes from './src/routes/message.routes';
 import toolRoutes from './src/routes/tool.routes';
 
 dotenv.config();
@@ -19,6 +21,8 @@ app.use(cors({
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/messages', messageRoutes);
 app.use('/api/tools', toolRoutes);
 
 app.get('/health', (req, res) => {

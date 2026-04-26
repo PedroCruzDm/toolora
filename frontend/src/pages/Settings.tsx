@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
@@ -6,18 +6,20 @@ import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Trash2, AlertTriangle, Upload, X } from "lucide-react";
 
 type UserData = {
   id: number;
   name: string;
   email: string;
+  profileImage?: string | null;
 };
 
 type JwtPayload = {
   userId?: number;
   email?: string;
   name?: string;
+  profileImage?: string | null;
 };
 
 export default function Settings() {
@@ -25,6 +27,7 @@ export default function Settings() {
   const [user, setUser] = useState<UserData | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [profileImage, setProfileImage] = useState<string>("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -32,7 +35,10 @@ export default function Settings() {
   const [deletePassword, setDeletePassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [loading, setLoading] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const hasProfileImage = Boolean(profileImage.trim());
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -42,6 +48,7 @@ export default function Settings() {
         setUser(userData);
         setName(userData.name);
         setEmail(userData.email);
+        setProfileImage(userData.profileImage ?? "");
       } catch {
         navigate("/login");
       }
@@ -56,11 +63,13 @@ export default function Settings() {
             id: payload.userId ?? 0,
             name: payload.name ?? "",
             email: payload.email ?? "",
+            profileImage: payload.profileImage ?? null,
           };
 
           setUser(fallbackUser);
           setName(fallbackUser.name);
           setEmail(fallbackUser.email);
+          setProfileImage(fallbackUser.profileImage ?? "");
         } catch {
           navigate("/login");
         }
@@ -68,6 +77,57 @@ export default function Settings() {
     }
     setLoading(false);
   }, [navigate]);
+
+  const uploadProfileImage = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Envie apenas imagem.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 5MB.");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await api.post<{ url: string }>("/tools/upload-image", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setProfileImage(response.data.url);
+      toast.success("Foto de perfil enviada.");
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error ?? "Não foi possível enviar a imagem."
+        : "Não foi possível enviar a imagem.";
+      toast.error(message);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleProfileImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await uploadProfileImage(file);
+    event.target.value = "";
+  };
+
+  const handleProfileImagePaste = async (event: ClipboardEvent<HTMLDivElement>) => {
+    const items = event.clipboardData?.items ?? [];
+    for (const item of items) {
+      if (!item.type.startsWith("image/")) continue;
+      const file = item.getAsFile();
+      if (!file) continue;
+      event.preventDefault();
+      await uploadProfileImage(file);
+      return;
+    }
+  };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -87,6 +147,7 @@ export default function Settings() {
       const payload: any = {
         name: name.trim(),
         email: email.trim(),
+        profileImage: profileImage.trim() ? profileImage.trim() : null,
       };
 
       if (newPassword) {
@@ -188,6 +249,95 @@ export default function Settings() {
 
         <Card className="p-8">
           <form onSubmit={onSubmit} className="space-y-6">
+            <div
+              className="rounded-2xl border border-border bg-card/70 p-4 space-y-4"
+              onPaste={handleProfileImagePaste}
+              tabIndex={0}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Foto de perfil
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Envie um arquivo local ou cole um print. A foto será salva no seu perfil.
+                  </p>
+                </div>
+                {profileImage && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setProfileImage("")}
+                    className="text-xs"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Remover
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid gap-4">
+                <div className="overflow-hidden rounded-2xl border border-border bg-black/5 dark:bg-white/5">
+                  {hasProfileImage ? (
+                    <img
+                      src={profileImage}
+                      alt={name || "Foto de perfil"}
+                      className="h-56 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-56 items-center justify-center px-6 text-center text-sm text-muted-foreground">
+                      Nenhuma foto aplicada ainda. Envie um arquivo, cole um print ou adicione um link.
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfileImageChange}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isUploadingImage ? "Enviando..." : "Escolher imagem"}
+                  </Button>
+
+                  {hasProfileImage ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setProfileImage("")}
+                      className="text-xs"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Remover
+                    </Button>
+                  ) : (
+                    <Input
+                      type="text"
+                      value={profileImage}
+                      onChange={(e) => setProfileImage(e.target.value)}
+                      placeholder="Ou cole um link de imagem"
+                      className="min-w-[240px] flex-1"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {hasProfileImage && (
+                <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  Foto pronta para salvar.
+                </p>
+              )}
+            </div>
+
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
                 Nome

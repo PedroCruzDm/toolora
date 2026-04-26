@@ -5,6 +5,7 @@ import * as z from "zod";
 import axios from "axios";
 import { motion } from "framer-motion";
 import { Link as LinkIcon, Pencil } from "lucide-react";
+import { useRef, useState, type ChangeEvent, type ClipboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -38,6 +39,10 @@ const categories = [
 const schema = z.object({
   name: z.string().min(2, "Nome muito curto").max(100, "Nome muito longo"),
   url: z.string().url("Link inválido").startsWith("https://", "O link deve começar com https://"),
+  screenshot: z.union([
+    z.literal(""),
+    z.string().url("Link da imagem inválido"),
+  ]),
   category: z.string().min(2, "Selecione uma categoria"),
   tags: z.array(z.string().min(2)).max(10, "Máximo 10 tags").optional(),
   description: z.string().min(30, "Descreva melhor a ferramenta (mínimo 30 caracteres)").max(800, "Descrição muito longa"),
@@ -48,11 +53,15 @@ type FormData = z.infer<typeof schema>;
 export default function Submit() {
   const navigate = useNavigate();
   const isLogged = Boolean(localStorage.getItem("token"));
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     control,
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
     reset,
   } = useForm<FormData>({
@@ -60,17 +69,73 @@ export default function Submit() {
     defaultValues: {
       name: "",
       url: "",
+      screenshot: "",
       category: "",
       tags: [],
       description: "",
     },
   });
 
+  const screenshotValue = watch("screenshot");
+  const hasScreenshot = Boolean(screenshotValue?.trim());
+
+  const uploadImageFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Envie apenas arquivo de imagem.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 5MB.");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await api.post<{ url: string }>("/tools/upload-image", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setValue("screenshot", response.data.url, { shouldDirty: true, shouldValidate: true });
+      toast.success("Imagem enviada com sucesso.");
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error ?? "Não foi possível enviar a imagem."
+        : "Não foi possível enviar a imagem.";
+      toast.error(message);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleLocalImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await uploadImageFile(file);
+    event.target.value = "";
+  };
+
+  const handlePasteImage = async (event: ClipboardEvent<HTMLDivElement>) => {
+    const items = event.clipboardData?.items ?? [];
+    for (const item of items) {
+      if (!item.type.startsWith("image/")) continue;
+      const file = item.getAsFile();
+      if (!file) continue;
+      event.preventDefault();
+      await uploadImageFile(file);
+      return;
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
     try {
       await api.post("/tools", {
         name: data.name,
         url: data.url,
+        screenshot: data.screenshot.trim() ? data.screenshot.trim() : null,
         category: data.category,
         description: data.description,
         tags: data.tags ?? [],
@@ -149,6 +214,79 @@ export default function Submit() {
             </label>
             <LinkIcon className="absolute right-5 top-4 h-5 w-5 text-muted-foreground peer-focus:text-primary transition-colors" />
             {errors.url && <p className="text-sm text-destructive mt-1.5">{errors.url.message}</p>}
+          </div>
+
+          <div
+            className="space-y-3 rounded-xl border border-input bg-background/70 p-4"
+            onPaste={handlePasteImage}
+            tabIndex={0}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Imagem do post</p>
+                <p className="text-xs text-muted-foreground">
+                  Envie um arquivo local, cole um print ou cole um link. Depois de anexada, a URL não aparece mais no campo.
+                </p>
+              </div>
+              {hasScreenshot && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setValue("screenshot", "", { shouldDirty: true, shouldValidate: true })}
+                  className="text-xs"
+                >
+                  Remover
+                </Button>
+              )}
+            </div>
+
+            {!hasScreenshot ? (
+              <div className="grid gap-3">
+                <div className="relative">
+                  <Input
+                    {...register("screenshot")}
+                    placeholder="Cole um link de imagem ou envie um arquivo"
+                    className="peer h-14 px-5 pt-6 pb-2 bg-background border border-input rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                  />
+                  <LinkIcon className="absolute right-5 top-4 h-5 w-5 text-muted-foreground peer-focus:text-primary transition-colors" />
+                </div>
+                {errors.screenshot && <p className="text-sm text-destructive mt-1.5">{errors.screenshot.message}</p>}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-2xl border border-border bg-black/5 dark:bg-white/5">
+                  <img
+                    src={screenshotValue}
+                    alt="Preview da imagem anexada"
+                    className="h-48 w-full object-cover"
+                  />
+                </div>
+                <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  Imagem anexada com sucesso.
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLocalImageChange}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingImage}
+              >
+                {isUploadingImage ? "Enviando imagem..." : "Selecionar imagem"}
+              </Button>
+              <p className="text-xs text-muted-foreground self-center">
+                Você também pode clicar dentro da área e colar com Ctrl+V.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-2">

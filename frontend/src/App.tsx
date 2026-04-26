@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Home from "@/pages/Home";
+import Categories from "@/pages/Categories";
 import Submit from "@/pages/Submit";
 import Cadastro from "@/pages/cadastro";
 import Login from "@/pages/login";
@@ -10,6 +11,7 @@ import DeleteAccount from "@/pages/DeleteAccount";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminPendingPosts from "@/pages/AdminPendingPosts";
 import AdminReviewedPosts from "@/pages/AdminReviewedPosts";
+import AdminRequests from "@/pages/AdminRequests";
 import { Toaster } from "sonner";
 
 function App() {
@@ -21,6 +23,7 @@ function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/categorias" element={<Categories />} />
             <Route path="/submit" element={<Submit />} />
             <Route path="/cadastro" element={<Cadastro />} />
             <Route path="/login" element={<Login />} />
@@ -30,6 +33,7 @@ function App() {
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/pending-posts" element={<AdminPendingPosts />} />
             <Route path="/admin/reviewed-posts" element={<AdminReviewedPosts />} />
+            <Route path="/admin/requests" element={<AdminRequests />} />
           </Routes>
         </main>
 

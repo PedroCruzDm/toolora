@@ -5,85 +5,166 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { useSearch } from "@/hooks/useSearch";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import api from "@/services/api";
 
-const tools: Tool[] = [
-  {
-    id: "1",
-    name: "Canva",
-    description: "Crie designs incríveis em minutos com milhares de templates gratuitos.",
-    screenshot: "https://picsum.photos/id/1015/800/600",
-    url: "https://canva.com",
-    category: "Design Gráfico",
-    tags: ["design", "gratuito", "templates"],
-    likesCount: 1243,
-    status: "approved",
-    approved_at: null,
-  },
-  {
-    id: "2",
-    name: "Figma",
-    description: "A melhor ferramenta de design colaborativo do mundo.",
-    screenshot: "https://picsum.photos/id/106/800/600",
-    url: "https://figma.com",
-    category: "Design Gráfico",
-    tags: ["ui", "prototipação", "colaborativo"],
-    likesCount: 987,
-    status: "approved",
-    approved_at: null,
-  },
-  {
-    id: "uiverse",
-    name: "Uiverse",
-    description: "Biblioteca gratuita com centenas de componentes UI prontos em HTML + CSS puro (cards, botões, loaders, toggles, etc.). Ótimo para inspiração rápida e copy-paste.",
-    screenshot: "https://api.microlink.io/?url=https://uiverse.io/&screenshot=true&embed=screenshot.url", // screenshot oficial ou use um gerado
-    url: "https://uiverse.io/",
-    category: "Desenvolvimento e Código",
-    tags: ["componentes", "css", "ui"],
-    likesCount: 8420,
-    status: "approved",
-    approved_at: null,
-  },
-  {
-    id: "replit",
-    name: "Replit",
-    description: "Ambiente online completo para criar, rodar e compartilhar projetos em várias linguagens. Ideal para protótipos rápidos, testes e aprendizado sem instalar nada.",
-    screenshot: "https://api.microlink.io/?url=https://replit.com/&screenshot=true&embed=screenshot.url",
-    url: "https://replit.com/",
-    category: "Desenvolvimento e Código",
-    tags: ["online", "dev", "ia"],
-    likesCount: 15670,
-    status: "approved",
-    approved_at: null,
-  },
-  {
-    id: "neumorphism",
-    name: "Neumorphism.io",
-    description: "Gerador de paleta e sombras no estilo neumorphism (soft UI). Permite customizar cores, bordas e sombras e copiar o CSS pronto em segundos.",
-    screenshot: "https://api.microlink.io/?url=https://neumorphism.io/&screenshot=true&embed=screenshot.url",
-    url: "https://neumorphism.io/",
-    category: "Geradores e Utilitários",
-    tags: ["ui", "gerador", "css"],
-    likesCount: 6210,
-    status: "approved",
-    approved_at: null,
-  },
-  {
-    id: "cssgradient",
-    name: "CSS Gradient",
-    description: "Ferramenta simples e poderosa para criar gradientes CSS lindos. Escolha cores, direção, tipo (linear/radial) e copie o código diretamente.",
-    screenshot: "https://api.microlink.io/?url=https://cssgradient.io/&screenshot=true&embed=screenshot.url",
-    url: "https://cssgradient.io/",
-    category: "Geradores e Utilitários",
-    tags: ["gradiente", "css", "gerador"],
-    likesCount: 9840,
-    status: "approved",
-    approved_at: null,
-  },
-  // adicione mais ferramentas mock aqui se quiser
-];
+type ApprovedToolApiResponse = {
+  id: number;
+  name: string;
+  description: string;
+  screenshot: string | null;
+  url: string;
+  category: string;
+  tags: string[];
+  likes_count: number;
+  status: "approved";
+  approved_at: string | null;
+};
+
+type ToolInteractionsResponse = {
+  likedToolIds: number[];
+  favoritedToolIds: number[];
+};
+
+type ToggleLikeResponse = {
+  liked: boolean;
+  likesCount: number;
+  message: string;
+};
+
+type ToggleFavoriteResponse = {
+  favorited: boolean;
+  message: string;
+};
 
 export default function Home() {
+  const navigate = useNavigate();
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [loading, setLoading] = useState(true);
   const { query, setQuery, filtered } = useSearch(tools);
+
+  useEffect(() => {
+    const fetchApprovedTools = async () => {
+      try {
+        const [toolsResponse, interactionsResponse] = await Promise.all([
+          api.get<ApprovedToolApiResponse[]>("/tools"),
+          localStorage.getItem("token")
+            ? api.get<ToolInteractionsResponse>("/tools/interactions")
+            : Promise.resolve({ data: { likedToolIds: [], favoritedToolIds: [] } }),
+        ]);
+
+        const likedSet = new Set((interactionsResponse.data.likedToolIds ?? []).map(Number));
+        const favoritedSet = new Set((interactionsResponse.data.favoritedToolIds ?? []).map(Number));
+
+        const mappedTools: Tool[] = toolsResponse.data.map((tool) => ({
+          id: String(tool.id),
+          name: tool.name,
+          description: tool.description,
+          screenshot: tool.screenshot ?? "https://picsum.photos/seed/toolora/800/600",
+          url: tool.url,
+          category: tool.category,
+          tags: tool.tags ?? [],
+          likesCount: Number(tool.likes_count ?? 0),
+          isLiked: likedSet.has(Number(tool.id)),
+          isFavorited: favoritedSet.has(Number(tool.id)),
+          status: tool.status,
+          approved_at: tool.approved_at,
+        }));
+
+        setTools(mappedTools);
+      } catch (error) {
+        console.error("Erro ao carregar posts aprovados:", error);
+        setTools([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApprovedTools();
+  }, []);
+
+  const requireLoginForInteraction = () => {
+    if (localStorage.getItem("token")) {
+      return true;
+    }
+    toast.error("Faça login para curtir e favoritar ferramentas.");
+    navigate("/login");
+    return false;
+  };
+
+  const handleToggleLike = async (toolId: string) => {
+    if (!requireLoginForInteraction()) return;
+
+    const previousTool = tools.find((tool) => tool.id === toolId);
+    if (!previousTool) return;
+
+    setTools((currentTools) =>
+      currentTools.map((tool) => {
+        if (tool.id !== toolId) return tool;
+        const nextLiked = !tool.isLiked;
+        return {
+          ...tool,
+          isLiked: nextLiked,
+          likesCount: nextLiked ? tool.likesCount + 1 : Math.max(0, tool.likesCount - 1),
+        };
+      })
+    );
+
+    try {
+      const response = await api.post<ToggleLikeResponse>(`/tools/${toolId}/like`);
+      setTools((currentTools) =>
+        currentTools.map((tool) =>
+          tool.id === toolId
+            ? {
+                ...tool,
+                isLiked: Boolean(response.data.liked),
+                likesCount: Number(response.data.likesCount ?? tool.likesCount),
+              }
+            : tool
+        )
+      );
+    } catch {
+      setTools((currentTools) =>
+        currentTools.map((tool) => (tool.id === toolId ? previousTool : tool))
+      );
+      toast.error("Não foi possível atualizar a curtida.");
+    }
+  };
+
+  const handleToggleFavorite = async (toolId: string) => {
+    if (!requireLoginForInteraction()) return;
+
+    const previousTool = tools.find((tool) => tool.id === toolId);
+    if (!previousTool) return;
+
+    setTools((currentTools) =>
+      currentTools.map((tool) =>
+        tool.id === toolId ? { ...tool, isFavorited: !tool.isFavorited } : tool
+      )
+    );
+
+    try {
+      const response = await api.post<ToggleFavoriteResponse>(`/tools/${toolId}/favorite`);
+      setTools((currentTools) =>
+        currentTools.map((tool) =>
+          tool.id === toolId
+            ? {
+                ...tool,
+                isFavorited: Boolean(response.data.favorited),
+              }
+            : tool
+        )
+      );
+    } catch {
+      setTools((currentTools) =>
+        currentTools.map((tool) => (tool.id === toolId ? previousTool : tool))
+      );
+      toast.error("Não foi possível atualizar o favorito.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
       {/* Hero */}
@@ -130,11 +211,24 @@ export default function Home() {
       <section className="max-w-screen-2xl mx-auto px-6 lg:px-12 xl:px-16 py-24 bg-background">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 xl:gap-16">
           <div className="lg:col-span-9 xl:col-span-10">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 lg:gap-10 xl:gap-12">
-              {filtered.map(tool => (
-                <ToolCard key={tool.id} tool={tool} />
-              ))}
-            </div>
+            {loading ? (
+              <div className="py-12 text-center text-lg text-muted-foreground">Carregando posts aprovados...</div>
+            ) : filtered.length === 0 ? (
+              <div className="py-12 text-center text-lg text-muted-foreground">
+                Ainda não há posts aprovados para exibir na vitrine.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 lg:gap-10 xl:gap-12">
+                {filtered.map(tool => (
+                  <ToolCard
+                    key={tool.id}
+                    tool={tool}
+                    onToggleLike={handleToggleLike}
+                    onToggleFavorite={handleToggleFavorite}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="lg:col-span-3 xl:col-span-2 hidden lg:block">

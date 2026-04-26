@@ -1,55 +1,20 @@
 // src/components/Navbar.tsx
 import { Link, useNavigate } from "react-router-dom";
-import { CheckCircle2, LogIn, PlusCircle, Moon, Sun, UserCircle2, ChevronDown, Settings, LogOut } from "lucide-react";
+import { LogIn, PlusCircle, Moon, Sun, UserCircle2, ChevronDown, Settings, LogOut } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AuthSession, hasAdminAccess, hasModeratorAccess, readAuthSession } from "@/lib/auth";
 
-type JwtPayload = {
-  email?: string;
-  name?: string;
-  isAdmin?: boolean;
-};
-
-type AuthSession = {
-  displayName: string;
-  isAdmin: boolean;
-};
-
-const readAuthUser = (): AuthSession | null => {
-  const storedUser = localStorage.getItem("user");
-  if (storedUser) {
-    try {
-      const parsed = JSON.parse(storedUser) as { name?: string; email?: string; isAdmin?: boolean };
-      const displayName = parsed.name ?? parsed.email ?? null;
-      if (!displayName) return null;
-      return {
-        displayName,
-        isAdmin: Boolean(parsed.isAdmin),
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  const token = localStorage.getItem("token");
-  if (!token) return null;
-
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1])) as JwtPayload;
-    return {
-      displayName: payload.name ?? payload.email ?? "Usuário logado",
-      isAdmin: Boolean(payload.isAdmin),
-    };
-  } catch {
-    return {
-      displayName: "Usuário logado",
-      isAdmin: false,
-    };
-  }
-};
+const getInitials = (value: string) =>
+  value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "U";
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const [authUser, setAuthUser] = useState<AuthSession | null>(() => readAuthUser());
+  const [authUser, setAuthUser] = useState<AuthSession | null>(() => readAuthSession());
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true' ||
            (!('darkMode' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -58,7 +23,8 @@ export default function Navbar() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isLoggedIn = useMemo(() => Boolean(authUser), [authUser]);
-  const isAdmin = useMemo(() => Boolean(authUser?.isAdmin), [authUser]);
+  const isAdmin = useMemo(() => hasAdminAccess(authUser), [authUser]);
+  const isModerator = useMemo(() => hasModeratorAccess(authUser), [authUser]);
 
   useEffect(() => {
     if (darkMode) {
@@ -71,7 +37,7 @@ export default function Navbar() {
   }, [darkMode]);
 
   useEffect(() => {
-    const syncAuthState = () => setAuthUser(readAuthUser());
+    const syncAuthState = () => setAuthUser(readAuthSession());
 
     syncAuthState();
     window.addEventListener("storage", syncAuthState);
@@ -124,7 +90,17 @@ export default function Navbar() {
                     : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
                 }`}
               >
-                <CheckCircle2 className="h-4 w-4" />
+                {authUser?.profileImage ? (
+                  <img
+                    src={authUser.profileImage}
+                    alt={authUser.displayName}
+                    className="h-6 w-6 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black text-white ${isAdmin ? "bg-red-500" : "bg-emerald-500"}`}>
+                    {getInitials(authUser?.displayName ?? "Usuário")}
+                  </div>
+                )}
                 <span>{authUser?.displayName}</span>
                 <ChevronDown className="h-4 w-4" />
               </button>
@@ -161,7 +137,14 @@ export default function Navbar() {
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       >
-                        <span>Posts pendentes</span>
+                        <span>Pendentes (aplicar imagem)</span>
+                      </Link>
+                      <Link
+                        to="/admin/requests"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <span>Solicitações de ban</span>
                       </Link>
                       <Link
                         to="/admin/reviewed-posts"
@@ -170,6 +153,24 @@ export default function Navbar() {
                       >
                         <span>Posts revisados</span>
                       </Link>                    </>
+                  )}
+                  {isModerator && !isAdmin && (
+                    <>
+                      <Link
+                        to="/admin/pending-posts"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                      >
+                        <span>Moderação de posts</span>
+                      </Link>
+                      <Link
+                        to="/admin/requests"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                      >
+                        <span>Solicitar ban</span>
+                      </Link>
+                    </>
                   )}
                   <button
                     onClick={handleLogout}
@@ -209,7 +210,15 @@ export default function Navbar() {
                     : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
                 }`}
               >
-                <UserCircle2 className="h-4 w-4" />
+                {authUser?.profileImage ? (
+                  <img
+                    src={authUser.profileImage}
+                    alt={authUser.displayName}
+                    className="h-4 w-4 rounded-full object-cover"
+                  />
+                ) : (
+                  <UserCircle2 className="h-4 w-4" />
+                )}
                 <ChevronDown className="h-4 w-4" />
               </button>
 
@@ -245,9 +254,25 @@ export default function Navbar() {
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       >
-                        <span>Posts pendentes</span>
+                        <span>Pendentes (aplicar imagem)</span>
+                      </Link>
+                      <Link
+                        to="/admin/requests"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <span>Solicitações de ban</span>
                       </Link>
                     </>
+                  )}
+                  {isModerator && !isAdmin && (
+                    <Link
+                      to="/admin/requests"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                    >
+                      <span>Solicitar ban</span>
+                    </Link>
                   )}
                   <button
                     onClick={handleLogout}
