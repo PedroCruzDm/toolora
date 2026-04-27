@@ -19,10 +19,12 @@ type AdminUser = {
 
 export default function AdminUsers() {
   const navigate = useNavigate();
-  const session = useMemo(() => readAuthSession(), []);
+  const [session, setSession] = useState(() => readAuthSession());
+  const [sessionLoaded, setSessionLoaded] = useState(false);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "banned">("all");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [modalTab, setModalTab] = useState<"warning" | "request-ban" | "ban" | "profile">("warning");
   const [banReason, setBanReason] = useState("");
@@ -46,6 +48,10 @@ export default function AdminUsers() {
   };
 
   useEffect(() => {
+    if (!sessionLoaded) {
+      return;
+    }
+
     if (!hasModeratorAccess(session)) {
       toast.error("Acesso restrito à moderação.");
       navigate("/");
@@ -53,14 +59,45 @@ export default function AdminUsers() {
     }
 
     loadUsers();
-  }, [navigate, session]);
+  }, [navigate, session, sessionLoaded]);
+
+  useEffect(() => {
+    let active = true;
+
+    const refreshSession = async () => {
+      try {
+        const response = await api.get<{ user: { name: string; email: string; isOwner: boolean; isAdmin: boolean; isModerator: boolean; profileImage?: string | null } }>("/auth/me");
+        if (!active) return;
+
+        setSession({
+          displayName: response.data.user.name ?? response.data.user.email,
+          isOwner: Boolean(response.data.user.isOwner),
+          isAdmin: Boolean(response.data.user.isAdmin),
+          isModerator: Boolean(response.data.user.isModerator),
+          profileImage: response.data.user.profileImage ?? null,
+        });
+      } catch {
+        if (!active) return;
+      } finally {
+        if (!active) return;
+        setSessionLoaded(true);
+      }
+    };
+
+    refreshSession();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    if (!normalizedQuery) return users;
-
     return users.filter((user) => {
+      if (statusFilter === "banned" && !user.isBanned) return false;
+      if (statusFilter === "active" && user.isBanned) return false;
+
       const roleLabel = user.isOwner
         ? "owner"
         : user.isAdmin
@@ -71,15 +108,18 @@ export default function AdminUsers() {
               ? "banido"
               : "usuario";
 
+      if (!normalizedQuery) return true;
+
       return (
         user.name.toLowerCase().includes(normalizedQuery) ||
         user.email.toLowerCase().includes(normalizedQuery) ||
         roleLabel.includes(normalizedQuery)
       );
     });
-  }, [query, users]);
+  }, [query, statusFilter, users]);
 
   const totalAdmins = useMemo(() => users.filter((user) => user.isAdmin).length, [users]);
+  const totalBanned = useMemo(() => users.filter((user) => user.isBanned).length, [users]);
   const latestUser = useMemo(() => users[0] ?? null, [users]);
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) ?? null,
@@ -228,6 +268,29 @@ export default function AdminUsers() {
                 placeholder="Nome, email ou perfil"
                 className="w-full rounded-2xl border border-white/10 bg-slate-950/40 py-3 pl-11 pr-4 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20"
               />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setStatusFilter("all")}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${statusFilter === "all" ? "bg-sky-500 text-white" : "bg-slate-900 text-slate-300"}`}
+              >
+                Todos ({users.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("active")}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${statusFilter === "active" ? "bg-emerald-600 text-white" : "bg-slate-900 text-slate-300"}`}
+              >
+                Ativos ({users.length - totalBanned})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("banned")}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${statusFilter === "banned" ? "bg-rose-600 text-white" : "bg-slate-900 text-slate-300"}`}
+              >
+                Banidos ({totalBanned})
+              </button>
             </div>
             <p className="mt-3 text-xs leading-5 text-slate-400">
               A busca filtra instantaneamente a lista abaixo.

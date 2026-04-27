@@ -52,45 +52,65 @@ export default function Login() {
 	};
 
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-gray-100">
-			<div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
-				<h2 className="mb-6 text-center text-2xl font-bold text-gray-900">Entrar</h2>
-				<form className="space-y-5" onSubmit={onSubmit}>
+		<div className="relative min-h-screen overflow-hidden bg-background px-4 pb-16 pt-36 text-foreground">
+			<div className="pointer-events-none absolute -top-28 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl" />
+			<div className="pointer-events-none absolute bottom-0 right-0 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+
+			<div className="mx-auto w-full max-w-5xl">
+				<div className="mb-10 text-center">
+					<h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">Entre na sua conta Toolora</h1>
+					<p className="mx-auto mt-3 max-w-2xl text-base text-muted-foreground md:text-lg">
+						Acesse seus favoritos, gerencie publicações e acompanhe sua evolução.
+					</p>
+				</div>
+
+				<div className="mx-auto w-full max-w-md overflow-hidden rounded-3xl border border-border bg-card p-8 shadow-xl sm:p-10">
+					<div className="mb-8 text-center">
+						<p className="mb-3 inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+							Acessar conta
+						</p>
+						<h2 className="text-3xl font-black tracking-tight text-foreground">Entrar</h2>
+						<p className="mt-2 text-sm text-muted-foreground">Continue para gerenciar seus envios e favoritos.</p>
+					</div>
+
+					<form className="space-y-5" onSubmit={onSubmit}>
 					<div>
-						<label htmlFor="email" className="mb-1 block font-medium text-gray-800">Email</label>
+						<label htmlFor="email" className="mb-2 block text-sm font-semibold text-foreground">Email</label>
 						<input
 							type="email"
 							id="email"
 							value={email}
 							onChange={(event) => setEmail(event.target.value)}
-							className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none"
+							className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/20"
 							placeholder="seu@email.com"
 							autoComplete="email"
 						/>
 					</div>
 					<div>
-						<label htmlFor="senha" className="mb-1 block font-medium text-gray-800">Senha</label>
+						<label htmlFor="senha" className="mb-2 block text-sm font-semibold text-foreground">Senha</label>
 						<input
 							type="password"
 							id="senha"
 							value={password}
 							onChange={(event) => setPassword(event.target.value)}
-							className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none"
+							className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/20"
 							placeholder="Sua senha"
 							autoComplete="current-password"
 						/>
 					</div>
 					<button
 						type="submit"
-						className="w-full rounded bg-blue-600 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+						className="w-full rounded-2xl bg-primary py-3 font-semibold text-primary-foreground shadow-lg transition hover:scale-[1.01] hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
 						disabled={isSubmitting}
 					>
 						{isSubmitting ? "Entrando..." : "Entrar"}
 					</button>
-				</form>
-				<p className="mt-4 text-center text-sm text-gray-600">
-					Não tem uma conta? <Link to="/cadastro" className="text-blue-600 hover:underline">Criar conta</Link>
-				</p>
+					</form>
+
+					<p className="mt-6 text-center text-sm text-muted-foreground">
+						Não tem uma conta? <Link to="/cadastro" className="font-semibold text-primary hover:underline">Criar conta</Link>
+					</p>
+				</div>
 			</div>
 		</div>
 	);

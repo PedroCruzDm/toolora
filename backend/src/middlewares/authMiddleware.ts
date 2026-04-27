@@ -34,9 +34,9 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       (req as any).user = {
         ...decoded,
         email: user.email,
-        isOwner: Boolean(user.is_owner),
-        isAdmin: Boolean(user.is_admin),
-        isModerator: Boolean(user.is_moderator),
+        isOwner: Boolean(decoded.isOwner ?? user.is_owner),
+        isAdmin: Boolean(decoded.isAdmin ?? user.is_admin),
+        isModerator: Boolean(decoded.isModerator ?? user.is_moderator),
         isBanned: Boolean(user.is_banned),
       };
 

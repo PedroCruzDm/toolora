@@ -234,3 +234,39 @@ export const listUsers = async (_req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro interno ao listar usuários' });
   }
 };
+
+export const currentSession = async (req: Request, res: Response) => {
+  const authUser = (req as any).user;
+
+  if (!authUser?.userId) {
+    return res.status(401).json({ error: 'Sessão inválida.' });
+  }
+
+  try {
+    const [rows] = await pool.execute(
+      'SELECT id, username, email, is_owner, is_admin, is_moderator, is_banned, profile_image FROM users WHERE id = ? LIMIT 1',
+      [authUser.userId]
+    );
+
+    const user = Array.isArray(rows) ? (rows[0] as any) : null;
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    return res.json({
+      user: {
+        id: user.id,
+        name: user.username,
+        email: user.email,
+        isOwner: Boolean(user.is_owner),
+        isAdmin: Boolean(user.is_admin),
+        isModerator: Boolean(user.is_moderator),
+        isBanned: Boolean(user.is_banned),
+        profileImage: user.profile_image ?? null,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro interno ao recuperar sessão.' });
+  }
+};

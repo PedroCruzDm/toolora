@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { LogIn, PlusCircle, Moon, Sun, UserCircle2, ChevronDown, Settings, LogOut } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthSession, hasAdminAccess, hasModeratorAccess, readAuthSession } from "@/lib/auth";
+import { useLocation } from "react-router-dom";
+import api from "@/services/api";
 
 const getInitials = (value: string) =>
   value
@@ -14,6 +16,7 @@ const getInitials = (value: string) =>
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [authUser, setAuthUser] = useState<AuthSession | null>(() => readAuthSession());
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true' ||
@@ -37,13 +40,39 @@ export default function Navbar() {
   }, [darkMode]);
 
   useEffect(() => {
-    const syncAuthState = () => setAuthUser(readAuthSession());
+    const syncAuthState = async () => {
+      const localSession = readAuthSession();
+      setAuthUser(localSession);
+
+      if (!localStorage.getItem("token")) {
+        setAuthUser(null);
+        return;
+      }
+
+      try {
+        const response = await api.get<{ user: { name?: string; email: string; isOwner: boolean; isAdmin: boolean; isModerator: boolean; profileImage?: string | null } }>("/auth/me");
+        const user = response.data.user;
+
+        const session: AuthSession = {
+          displayName: user.name ?? user.email,
+          isOwner: Boolean(user.isOwner),
+          isAdmin: Boolean(user.isAdmin),
+          isModerator: Boolean(user.isModerator),
+          profileImage: user.profileImage ?? null,
+        };
+
+        setAuthUser(session);
+        localStorage.setItem("user", JSON.stringify(user));
+      } catch {
+        setAuthUser(localSession);
+      }
+    };
 
     syncAuthState();
     window.addEventListener("storage", syncAuthState);
 
     return () => window.removeEventListener("storage", syncAuthState);
-  }, []);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

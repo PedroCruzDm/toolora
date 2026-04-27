@@ -6,6 +6,20 @@ type JwtPayload = {
   isModerator?: boolean;
 };
 
+const decodeJwtPayload = (token: string): JwtPayload | null => {
+  try {
+    const payloadPart = token.split('.')[1];
+    if (!payloadPart) return null;
+
+    const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+    const paddedBase64 = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const json = atob(paddedBase64);
+    return JSON.parse(json) as JwtPayload;
+  } catch {
+    return null;
+  }
+};
+
 export type AuthSession = {
   displayName: string;
   isOwner: boolean;
@@ -16,15 +30,7 @@ export type AuthSession = {
 
 export const readAuthSession = (): AuthSession | null => {
   const token = localStorage.getItem("token");
-  let tokenPayload: JwtPayload | null = null;
-
-  if (token) {
-    try {
-      tokenPayload = JSON.parse(atob(token.split(".")[1])) as JwtPayload;
-    } catch {
-      tokenPayload = null;
-    }
-  }
+  const tokenPayload = token ? decodeJwtPayload(token) : null;
 
   const storedUser = localStorage.getItem("user");
   if (storedUser) {
@@ -35,9 +41,9 @@ export const readAuthSession = (): AuthSession | null => {
 
       return {
         displayName,
-        isOwner: Boolean(parsed.isOwner ?? tokenPayload?.isOwner),
-        isAdmin: Boolean(parsed.isAdmin ?? tokenPayload?.isAdmin),
-        isModerator: Boolean(parsed.isModerator ?? tokenPayload?.isModerator),
+        isOwner: Boolean(parsed.isOwner || tokenPayload?.isOwner),
+        isAdmin: Boolean(parsed.isAdmin || tokenPayload?.isAdmin),
+        isModerator: Boolean(parsed.isModerator || tokenPayload?.isModerator),
         profileImage: parsed.profileImage ?? null,
       };
     } catch {
@@ -47,7 +53,8 @@ export const readAuthSession = (): AuthSession | null => {
 
   if (!tokenPayload && !token) return null;
 
-  const payload = tokenPayload ?? (JSON.parse(atob(token!.split(".")[1])) as JwtPayload);
+  const payload = tokenPayload ?? null;
+  if (!payload) return null;
   return {
     displayName: payload.name ?? payload.email ?? "Usuário logado",
     isOwner: Boolean(payload.isOwner),
