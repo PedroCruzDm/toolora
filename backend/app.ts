@@ -13,7 +13,11 @@ dotenv.config();
 const app = express();
 
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: [
+    'http://localhost:5173',
+    'https://toolora-7a2w.onrender.com',
+    'https://toolora-7a2w.onrender.com/'
+  ],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -23,7 +27,7 @@ app.use(express.json());
 app.use('/uploads', express.static(uploadsRootDir));
 
 app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/management', adminRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/tools', toolRoutes);
 

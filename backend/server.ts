@@ -1,11 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import dotenv from 'dotenv';
 import authRoutes from './src/routes/auth.routes';
 import adminRoutes from './src/routes/admin.routes';
 import messageRoutes from './src/routes/message.routes';
 import toolRoutes from './src/routes/tool.routes';
 import { uploadsRootDir } from './src/config/uploads';
+import { connectDB } from './src/config/db';
+
+dotenv.config();
 
 const app = express();
 
@@ -25,7 +29,13 @@ app.use('/api/management', adminRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/tools', toolRoutes);
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`Backend rodando em http://localhost:${PORT}`);
-});
+const startServer = async () => {
+  await connectDB();
+
+  const PORT = process.env.PORT || 8080;
+  app.listen(PORT, () => {
+    console.log(`Backend rodando em http://localhost:${PORT}`);
+  });
+};
+
+startServer();
