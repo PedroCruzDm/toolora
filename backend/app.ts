@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
+import { uploadsRootDir } from './src/config/uploads';
 
 import authRoutes from './src/routes/auth.routes';
 import adminRoutes from './src/routes/admin.routes';
@@ -19,6 +20,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use('/uploads', express.static(uploadsRootDir));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);

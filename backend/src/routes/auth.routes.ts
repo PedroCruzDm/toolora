@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { register, login, updateUser, deleteUser, listUsers, currentSession } from '../controller/authController';
+import { register, login, updateUser, deleteUser, listUsers, currentSession } from '../controller/authMongoController';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { adminMiddleware } from '../middlewares/adminMiddleware';
 

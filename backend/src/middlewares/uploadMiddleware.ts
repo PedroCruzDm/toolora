@@ -1,21 +1,18 @@
-import fs from 'fs';
-import path from 'path';
 import multer from 'multer';
+ 
+const storage = multer.memoryStorage();
 
-const uploadsDir = path.join(process.cwd(), 'uploads', 'tools');
-fs.mkdirSync(uploadsDir, { recursive: true });
+const isSupportedImage = (file: Express.Multer.File) => {
+  if (file.mimetype.startsWith('image/')) return true;
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.png';
-    const safeExt = ext.toLowerCase();
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`);
-  },
-});
+  const lowerName = file.originalname.toLowerCase();
+  return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'].some((extension) =>
+    lowerName.endsWith(extension)
+  );
+};
 
 const imageFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
+  if (isSupportedImage(file)) {
     cb(null, true);
     return;
   }

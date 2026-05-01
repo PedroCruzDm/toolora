@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import { ObjectId } from 'mongodb';
 import jwt from 'jsonwebtoken';
-import pool from '../config/db';
+import { getMongoDb } from '../config/mongo';
 
 const SECRET: string = process.env.JWT_SECRET ?? '';
 
@@ -17,11 +18,9 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   try {
     const decoded = jwt.verify(token, SECRET) as any;
 
-    pool.execute(
-      'SELECT id, email, is_owner, is_admin, is_moderator, is_banned FROM users WHERE id = ? LIMIT 1',
-      [decoded.userId]
-    ).then(([rows]) => {
-      const user = Array.isArray(rows) ? (rows[0] as any) : null;
+    getMongoDb().then(async (db) => {
+      const users = db.collection('users');
+      const user = await users.findOne({ _id: new ObjectId(decoded.userId) });
 
       if (!user) {
         return res.status(401).json({ error: 'Usuário não encontrado.' });

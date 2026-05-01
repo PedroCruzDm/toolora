@@ -39,13 +39,13 @@ async function main() {
   }
   ok("GET /api/tools resistente a query suspeita");
 
-  const unauthAdmin = await request("/api/admin/users");
-  ensureUnauthorized(unauthAdmin.response.status, "Admin sem token bloqueado");
+  const unauthAdmin = await request("/api/management/users");
+  ensureUnauthorized(unauthAdmin.response.status, "Management sem token bloqueado");
 
-  const malformedToken = await request("/api/admin/users", {
+  const malformedToken = await request("/api/management/users", {
     headers: { Authorization: "Bearer token.invalido.123" },
   });
-  ensureUnauthorized(malformedToken.response.status, "Admin com token malformado bloqueado");
+  ensureUnauthorized(malformedToken.response.status, "Management com token malformado bloqueado");
 
   const unauthMessages = await request("/api/messages/me");
   ensureUnauthorized(unauthMessages.response.status, "Mensagens sem token bloqueadas");

@@ -51,11 +51,11 @@ async function main() {
   const token = loginResult.data.token;
   const authHeaders = { Authorization: `Bearer ${token}` };
 
-  const adminUsersResult = await request("/api/admin/users", { headers: authHeaders });
+  const adminUsersResult = await request("/api/management/users", { headers: authHeaders });
   if (!adminUsersResult.response.ok || !Array.isArray(adminUsersResult.data)) {
-    fail("GET /api/admin/users falhou");
+    fail("GET /api/management/users falhou");
   }
-  ok("GET /api/admin/users");
+  ok("GET /api/management/users");
 
   const mineResult = await request("/api/tools/mine", { headers: authHeaders });
   if (!mineResult.response.ok || !Array.isArray(mineResult.data)) {

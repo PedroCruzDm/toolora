@@ -16,7 +16,7 @@ import {
   rejectTool,
   updateToolScreenshot,
   uploadToolImage
-} from '../controller/toolController';
+} from '../controller/toolMongoController';
 import { uploadImage } from '../middlewares/uploadMiddleware';
 
 const router = Router();

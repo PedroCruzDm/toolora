@@ -12,7 +12,7 @@ export type JwtFlags = {
   isModerator?: boolean;
 };
 
-export function generateToken(userId: number, email: string, flags: JwtFlags): string {
+export function generateToken(userId: string | number, email: string, flags: JwtFlags): string {
   return jwt.sign({ userId, email, ...flags }, SECRET, { expiresIn: '10d' });
 }
 
