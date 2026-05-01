@@ -1,24 +1,13 @@
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: toolora-mysql
+  mongo:
+    image: mongo:7
+    container_name: toolora-mongo
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: Mine2026
-      MYSQL_DATABASE: toolora
-      MYSQL_ROOT_HOST: '%'
-      TZ: America/Sao_Paulo
-    ports:
-     # - "3306:3306"               # Se der erro de porta ocupada, mude para "3307:3306"
-      - "3307:3306"             # Alternativa caso 3306 esteja em uso
+      MONGO_INITDB_ROOT_USERNAME: toolora_root
+      MONGO_INITDB_ROOT_PASSWORD: toolora_root_secret
     volumes:
-      - mysql-data:/var/lib/mysql
-      - ./backend/src/database/create.sql:/docker-entrypoint-initdb.d/01-create.sql:ro
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - mongo-data:/data/db
 
   backend:
     build:
@@ -32,15 +21,10 @@ services:
       - ./backend:/app
       - /app/node_modules
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mongo
     environment:
       PORT: 8080
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_USER: root
-      DB_PASSWORD: Mine2026
-      DB_NAME: toolora
+      MONGODB_URI: mongodb://toolora_root:toolora_root_secret@mongo:27017/toolora?authSource=admin
       JWT_SECRET: toolora-super-secret
     command: ["npm", "run", "dev"]
 
@@ -61,7 +45,7 @@ services:
       VITE_API_URL: http://localhost:8080
 
 volumes:
-  mysql-data:
+  mongo-data:
 
 networks:
   default:
