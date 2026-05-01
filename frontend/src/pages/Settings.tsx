@@ -40,6 +40,15 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasProfileImage = Boolean(profileImage.trim());
 
+  const isSupportedImageFile = (file: File) => {
+    if (file.type.startsWith("image/")) return true;
+
+    const lowerName = file.name.toLowerCase();
+    return [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"].some((extension) =>
+      lowerName.endsWith(extension)
+    );
+  };
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
@@ -79,7 +88,7 @@ export default function Settings() {
   }, [navigate]);
 
   const uploadProfileImage = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
+    if (!isSupportedImageFile(file)) {
       toast.error("Envie apenas imagem.");
       return;
     }
@@ -95,7 +104,6 @@ export default function Settings() {
       formData.append("image", file);
 
       const response = await api.post<{ url: string }>("/tools/upload-image", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
       });
 
       setProfileImage(response.data.url);

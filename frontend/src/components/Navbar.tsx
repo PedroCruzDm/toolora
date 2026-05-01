@@ -175,6 +175,15 @@ export default function Navbar() {
                       >
                         <span>Solicitações de ban</span>
                       </Link>
+                      {authUser?.isOwner && (
+                        <Link
+                          to="/admin/inbox"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <span>Caixa de mensagens</span>
+                        </Link>
+                      )}
                       <Link
                         to="/admin/reviewed-posts"
                         onClick={() => setIsMenuOpen(false)}
@@ -292,6 +301,15 @@ export default function Navbar() {
                       >
                         <span>Solicitações de ban</span>
                       </Link>
+                      {authUser?.isOwner && (
+                        <Link
+                          to="/admin/inbox"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <span>Caixa de mensagens</span>
+                        </Link>
+                      )}
                     </>
                   )}
                   {isModerator && !isAdmin && (

@@ -95,9 +95,7 @@ export default function Submit() {
       const formData = new FormData();
       formData.append("image", file);
 
-      const response = await api.post<{ url: string }>("/tools/upload-image", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const response = await api.post<{ url: string }>("/tools/upload-image", formData);
 
       setValue("screenshot", response.data.url, { shouldDirty: true, shouldValidate: true });
       toast.success("Imagem enviada com sucesso.");

@@ -10,10 +10,12 @@ type AdminUser = {
   id: number;
   name: string;
   email: string;
+  profileImage?: string | null;
   isOwner: boolean;
   isAdmin: boolean;
   isModerator: boolean;
   isBanned: boolean;
+  banReason?: string | null;
   createdAt: string;
 };
 
@@ -26,6 +28,8 @@ export default function AdminUsers() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "banned">("all");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserPostsCount, setSelectedUserPostsCount] = useState<number | null>(null);
+  const [selectedUserWarningsCount, setSelectedUserWarningsCount] = useState<number | null>(null);
   const [modalTab, setModalTab] = useState<"warning" | "request-ban" | "ban" | "profile">("warning");
   const [banReason, setBanReason] = useState("");
   const [requestBanReason, setRequestBanReason] = useState("");
@@ -35,7 +39,7 @@ export default function AdminUsers() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const response = await api.get<AdminUser[]>('/admin/users');
+      const response = await api.get<AdminUser[]>('/management/users');
       setUsers(response.data);
     } catch (error) {
       const message = axios.isAxiosError(error)
@@ -77,9 +81,10 @@ export default function AdminUsers() {
           profileImage: response.data.user.profileImage ?? null,
         });
       } catch {
-        if (!active) return;
-      } finally {
-        if (!active) return;
+        // error silently if not active
+      }
+      
+      if (active) {
         setSessionLoaded(true);
       }
     };
@@ -132,7 +137,33 @@ export default function AdminUsers() {
     setWarningMessage('');
     setRequestBanReason('');
     setBanReason('');
+    setSelectedUserPostsCount(null);
+    setSelectedUserWarningsCount(null);
   };
+
+  useEffect(() => {
+    if (!selectedUser) return;
+    let active = true;
+
+    const loadStats = async () => {
+      try {
+        const response = await api.get(`/management/users/${selectedUser.id}/stats`);
+        if (!active) return;
+        setSelectedUserPostsCount(response.data.postsCount ?? 0);
+        setSelectedUserWarningsCount(response.data.warningsCount ?? 0);
+      } catch {
+        if (!active) return;
+        setSelectedUserPostsCount(0);
+        setSelectedUserWarningsCount(0);
+      }
+    };
+
+    loadStats();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedUser]);
 
   const closeUserModal = () => {
     setSelectedUserId(null);
@@ -149,7 +180,7 @@ export default function AdminUsers() {
 
     setActionLoading(true);
     try {
-      await api.post(`/admin/users/${selectedUser.id}/ban`, { reason: banReason });
+      await api.post(`/management/users/${selectedUser.id}/ban`, { reason: banReason });
       toast.success("Usuário banido.");
       await loadUsers();
       closeUserModal();
@@ -157,6 +188,25 @@ export default function AdminUsers() {
       const message = axios.isAxiosError(error)
         ? error.response?.data?.error ?? "Nao foi possivel banir o usuario."
         : "Nao foi possivel banir o usuario.";
+      toast.error(message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUnbanUser = async () => {
+    if (!selectedUser || !session?.isOwner) return;
+
+    setActionLoading(true);
+    try {
+      await api.post(`/management/users/${selectedUser.id}/unban`);
+      toast.success("Usuário desbanido.");
+      await loadUsers();
+      closeUserModal();
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error ?? "Nao foi possivel desbanir o usuario."
+        : "Nao foi possivel desbanir o usuario.";
       toast.error(message);
     } finally {
       setActionLoading(false);
@@ -173,7 +223,7 @@ export default function AdminUsers() {
 
     setActionLoading(true);
     try {
-      await api.post(`/admin/users/${selectedUser.id}/warning`, { message: warningMessage });
+      await api.post(`/management/users/${selectedUser.id}/warning`, { message: warningMessage });
       toast.success("Aviso enviado.");
       setWarningMessage('');
       closeUserModal();
@@ -197,7 +247,7 @@ export default function AdminUsers() {
 
     setActionLoading(true);
     try {
-      await api.post('/admin/requests', {
+      await api.post('/management/requests', {
         requestType: 'ban_user',
         targetUserId: selectedUser.id,
         reason: requestBanReason,
@@ -395,7 +445,7 @@ export default function AdminUsers() {
               <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <button onClick={() => setModalTab('warning')} className={`rounded-xl px-3 py-2 text-xs font-semibold ${modalTab === 'warning' ? 'bg-amber-600 text-white' : 'bg-slate-900 text-slate-300'}`}>Enviar aviso</button>
                 <button onClick={() => setModalTab('request-ban')} className={`rounded-xl px-3 py-2 text-xs font-semibold ${modalTab === 'request-ban' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-300'}`}>Solicitar ban</button>
-                <button onClick={() => setModalTab('ban')} className={`rounded-xl px-3 py-2 text-xs font-semibold ${modalTab === 'ban' ? 'bg-red-600 text-white' : 'bg-slate-900 text-slate-300'}`}>Banir</button>
+                <button onClick={() => setModalTab('ban')} className={`rounded-xl px-3 py-2 text-xs font-semibold ${modalTab === 'ban' ? 'bg-red-600 text-white' : 'bg-slate-900 text-slate-300'}`}>{selectedUser.isBanned ? 'Desbanir' : 'Banir'}</button>
                 <button onClick={() => setModalTab('profile')} className={`rounded-xl px-3 py-2 text-xs font-semibold ${modalTab === 'profile' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-300'}`}>Visualizar perfil</button>
               </div>
 
@@ -433,16 +483,29 @@ export default function AdminUsers() {
                 <div className="space-y-3">
                   {session?.isOwner ? (
                     <>
-                      <textarea
-                        value={banReason}
-                        onChange={(event) => setBanReason(event.target.value)}
-                        rows={5}
-                        placeholder="Motivo do banimento"
-                        className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none"
-                      />
-                      <button onClick={handleBanUser} disabled={actionLoading} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
-                        {actionLoading ? 'Banindo...' : 'Banir usuário'}
-                      </button>
+                      {selectedUser.isBanned ? (
+                        <>
+                          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-300">
+                            Este usuário está banido{selectedUser.banReason ? `: ${selectedUser.banReason}` : '.'}
+                          </div>
+                          <button onClick={handleUnbanUser} disabled={actionLoading} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                            {actionLoading ? 'Desbanindo...' : 'Desbanir usuário'}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <textarea
+                            value={banReason}
+                            onChange={(event) => setBanReason(event.target.value)}
+                            rows={5}
+                            placeholder="Motivo do banimento"
+                            className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none"
+                          />
+                          <button onClick={handleBanUser} disabled={actionLoading} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                            {actionLoading ? 'Banindo...' : 'Banir usuário'}
+                          </button>
+                        </>
+                      )}
                     </>
                   ) : (
                     <p className="text-sm text-slate-400">Somente o owner pode banir diretamente. Use "Solicitar ban".</p>
@@ -452,11 +515,60 @@ export default function AdminUsers() {
 
               {modalTab === 'profile' && (
                 <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm">
-                  <p><span className="text-slate-400">Nome:</span> {selectedUser.name}</p>
-                  <p className="mt-1"><span className="text-slate-400">Email:</span> {selectedUser.email}</p>
-                  <p className="mt-1"><span className="text-slate-400">Perfil:</span> {selectedUser.isOwner ? 'Owner' : selectedUser.isAdmin ? 'Admin' : selectedUser.isModerator ? 'Moderador' : 'Usuário'}</p>
-                  <p className="mt-1"><span className="text-slate-400">Status:</span> {selectedUser.isBanned ? 'Banido' : 'Ativo'}</p>
-                  <p className="mt-1"><span className="text-slate-400">Cadastro:</span> {new Date(selectedUser.createdAt).toLocaleString('pt-BR')}</p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-black text-2xl overflow-hidden">
+                      {selectedUser.profileImage ? (
+                        <img src={selectedUser.profileImage} alt={selectedUser.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex items-center justify-center w-full h-full text-2xl">{selectedUser.name.charAt(0).toUpperCase()}</div>
+                      )}
+                    </div>
+
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-white">{selectedUser.name}</h3>
+                      <p className="text-sm text-slate-400 truncate max-w-[30ch]">{selectedUser.email}</p>
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${selectedUser.isOwner || selectedUser.isAdmin ? 'bg-red-100 text-red-700' : selectedUser.isModerator ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
+                          {selectedUser.isOwner ? 'Owner' : selectedUser.isAdmin ? 'Admin' : selectedUser.isModerator ? 'Moderador' : 'Usuário'}
+                        </span>
+
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${selectedUser.isBanned ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {selectedUser.isBanned ? 'Banido' : 'Ativo'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div className="rounded-lg border border-slate-800 bg-slate-950/20 p-3">
+                      <p className="text-xs text-slate-400">Cadastro</p>
+                      <p className="text-sm text-white">{new Date(selectedUser.createdAt).toLocaleString('pt-BR')}</p>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-800 bg-slate-950/20 p-3">
+                      <p className="text-xs text-slate-400">Posts</p>
+                      <p className="text-sm text-white">{selectedUserPostsCount === null ? '…' : selectedUserPostsCount}</p>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-800 bg-slate-950/20 p-3">
+                      <p className="text-xs text-slate-400">Avisos</p>
+                      <p className="text-sm text-white">{selectedUserWarningsCount === null ? '…' : selectedUserWarningsCount}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={() => navigator.clipboard?.writeText(selectedUser.email)}
+                      className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+                    >
+                      Copiar email
+                    </button>
+
+                    <button onClick={closeUserModal} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">
+                      Fechar
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

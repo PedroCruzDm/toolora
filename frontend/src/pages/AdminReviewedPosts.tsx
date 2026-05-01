@@ -76,11 +76,11 @@ export default function AdminReviewedPosts() {
     setBlockingPostId(post.id);
     try {
       if (post.blocked_by_owner) {
-        await api.post(`/admin/posts/${post.id}/unblock`);
+        await api.post(`/management/posts/${post.id}/unblock`);
         toast.success("Post desbloqueado.");
       } else {
         const reason = window.prompt("Motivo do bloqueio:", post.blocked_reason ?? "") ?? "";
-        await api.post(`/admin/posts/${post.id}/block`, { reason: reason.trim() || undefined });
+        await api.post(`/management/posts/${post.id}/block`, { reason: reason.trim() || undefined });
         toast.success("Post bloqueado.");
       }
 

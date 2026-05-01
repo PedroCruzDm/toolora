@@ -12,6 +12,7 @@ import AdminUsers from "@/pages/AdminUsers";
 import AdminPendingPosts from "@/pages/AdminPendingPosts";
 import AdminReviewedPosts from "@/pages/AdminReviewedPosts";
 import AdminRequests from "@/pages/AdminRequests";
+import OwnerInbox from "@/pages/OwnerInbox";
 import { Toaster } from "sonner";
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
             <Route path="/admin/pending-posts" element={<AdminPendingPosts />} />
             <Route path="/admin/reviewed-posts" element={<AdminReviewedPosts />} />
             <Route path="/admin/requests" element={<AdminRequests />} />
+            <Route path="/admin/inbox" element={<OwnerInbox />} />
           </Routes>
         </main>
 

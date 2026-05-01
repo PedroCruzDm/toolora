@@ -53,8 +53,8 @@ export default function AdminRequests() {
       setLoading(true);
       try {
         const [requestsResponse, usersResponse, toolsResponse] = await Promise.all([
-          api.get<ModerationRequest[]>("/admin/requests"),
-          api.get<UserOption[]>("/admin/users"),
+          api.get<ModerationRequest[]>("/management/requests"),
+          api.get<UserOption[]>("/management/users"),
           api.get<ToolOption[]>("/tools/reviewed?status=approved"),
         ]);
 
@@ -75,7 +75,7 @@ export default function AdminRequests() {
   }, [navigate, session]);
 
   const reload = async () => {
-    const response = await api.get<ModerationRequest[]>('/admin/requests');
+    const response = await api.get<ModerationRequest[]>('/management/requests');
     setRequests(response.data);
   };
 
@@ -99,7 +99,7 @@ export default function AdminRequests() {
 
     setSubmitting(true);
     try {
-      await api.post('/admin/requests', {
+      await api.post('/management/requests', {
         requestType,
         targetUserId: requestType === 'ban_user' ? Number(targetUserId) : undefined,
         targetToolId: requestType === 'ban_post' ? Number(targetToolId) : undefined,
@@ -123,7 +123,7 @@ export default function AdminRequests() {
 
   const handleReview = async (requestId: number, action: 'approve' | 'reject') => {
     try {
-      await api.patch(`/admin/requests/${requestId}/${action}`);
+      await api.patch(`/management/requests/${requestId}/${action}`);
       toast.success(action === 'approve' ? 'Solicitação aprovada.' : 'Solicitação rejeitada.');
       await reload();
     } catch (error) {
