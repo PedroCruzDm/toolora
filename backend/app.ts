@@ -66,12 +66,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend Node.js rodando!' });
 });
 
-// Optional: serve frontend build and enable SPA fallback when running as a single-host service.
-// Set SERVE_FRONTEND=true in the environment (Render or similar) to enable.
-if (process.env.SERVE_FRONTEND === 'true') {
-  // Resolve frontend build folder robustly. When running the backend process
-  // the current working directory may be either the repo root or the backend folder.
-  // Try multiple candidate locations and pick the first that exists.
+// Serve frontend build (SPA) when a `dist` exists in common locations.
+// This makes the server resilient to different working directories during deploy.
+{
   const fs = require('fs');
   const candidates = [
     path.join(process.cwd(), 'frontend', 'dist'), // if started from repo root
@@ -90,6 +87,12 @@ if (process.env.SERVE_FRONTEND === 'true') {
   if (staticPath) {
     app.use(express.static(staticPath));
 
+    // Serve a tiny fallback favicon to avoid 404 noise if frontend didn't include one.
+    app.get('/favicon.ico', (_req, res) => {
+      const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII='; // 1x1 PNG
+      res.type('image/png').send(Buffer.from(pngBase64, 'base64'));
+    });
+
     app.get('*', (req, res) => {
       // Let API, uploads and health endpoints continue to function
       if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/health')) {
@@ -97,7 +100,7 @@ if (process.env.SERVE_FRONTEND === 'true') {
       }
       return res.sendFile(path.join(staticPath, 'index.html'));
     });
-  } else {
+  } else if (process.env.SERVE_FRONTEND === 'true') {
     console.warn('SERVE_FRONTEND=true set but no frontend build found in expected locations:', candidates);
   }
 }
