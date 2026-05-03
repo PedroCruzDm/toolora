@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: toolora-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm run build:with-frontend
+    startCommand: npm start
+    envVars:
+      - key: SERVE_FRONTEND
+        value: "true"
