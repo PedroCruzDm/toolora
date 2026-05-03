@@ -8,6 +8,7 @@ import { useSearch } from "@/hooks/useSearch";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { getAuthToken } from "@/lib/auth";
 import api from "@/services/api";
 
 type ApprovedToolApiResponse = {
@@ -57,7 +58,7 @@ export default function Home() {
 
         const [toolsResponse, interactionsResponse] = await Promise.all([
           api.get<ApprovedToolApiResponse[]>("/tools"),
-          localStorage.getItem("token")
+          getAuthToken()
             ? api.get<ToolInteractionsResponse>("/tools/interactions")
             : Promise.resolve({ data: { likedToolIds: [], favoritedToolIds: [] } }),
         ]);
@@ -93,7 +94,7 @@ export default function Home() {
   }, []);
 
   const requireLoginForInteraction = () => {
-    if (localStorage.getItem("token")) {
+    if (getAuthToken()) {
       return true;
     }
     toast.error("Faça login para curtir e favoritar ferramentas.");

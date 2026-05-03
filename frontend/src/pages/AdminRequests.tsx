@@ -188,8 +188,17 @@ export default function AdminRequests() {
                 {pendingRequests.map((request) => (
                   <div key={request.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
                     <p className="text-sm font-semibold">{request.requestType === 'ban_user' ? 'Banir usuário' : 'Bloquear post'}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Por: {request.requesterName ?? 'Desconhecido'}</p>
-                    <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">{request.reason}</p>
+                    <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-slate-500 dark:text-slate-400">Solicitado por:</span>
+                        <p className="font-semibold text-slate-700 dark:text-slate-300">{request.requesterName ?? 'Desconhecido'}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 dark:text-slate-400">{request.requestType === 'ban_user' ? 'Usuário a banir:' : 'Post a bloquear:'}</span>
+                        <p className="font-semibold text-slate-700 dark:text-slate-300">{request.requestType === 'ban_user' ? (request.targetUserName ?? 'Desconhecido') : (request.targetToolName ?? 'Desconhecido')}</p>
+                      </div>
+                    </div>
+                    <p className="mt-3 text-sm text-slate-700 dark:text-slate-300"><span className="text-slate-500 dark:text-slate-400">Motivo:</span> {request.reason}</p>
                     {session?.isOwner && (
                       <div className="mt-3 flex gap-2">
                         <button onClick={() => handleReview(request.id, 'approve')} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white">Aprovar</button>

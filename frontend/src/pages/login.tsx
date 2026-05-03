@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
+import { saveAuthSession } from "@/lib/auth";
 
 type LoginResponse = {
 	token: string;
@@ -37,8 +38,7 @@ export default function Login() {
 				password,
 			});
 
-			localStorage.setItem("token", response.data.token);
-			localStorage.setItem("user", JSON.stringify(response.data.user));
+			saveAuthSession(response.data.token, response.data.user);
 			toast.success("Login realizado com sucesso!");
 			navigate("/");
 		} catch (error) {
@@ -109,6 +109,8 @@ export default function Login() {
 
 					<p className="mt-6 text-center text-sm text-muted-foreground">
 						Não tem uma conta? <Link to="/cadastro" className="font-semibold text-primary hover:underline">Criar conta</Link>
+						<span className="mx-2 text-muted-foreground/60">•</span>
+						<Link to="/forgot-password" className="font-semibold text-primary hover:underline">Esqueci minha senha</Link>
 					</p>
 				</div>
 			</div>

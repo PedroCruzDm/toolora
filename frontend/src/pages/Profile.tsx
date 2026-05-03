@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { User, Mail, Calendar, LogOut } from "lucide-react";
 import api from "@/services/api";
+import { clearAuthSession, getAuthToken, readStoredAuthUser } from "@/lib/auth";
 
 type UserData = {
   id: number;
@@ -76,15 +77,15 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
+    const storedUser = readStoredAuthUser();
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        setUser(storedUser);
       } catch {
         navigate("/login");
       }
     } else {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       if (!token) {
         navigate("/login");
       } else {
@@ -159,8 +160,7 @@ export default function Profile() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearAuthSession();
     navigate("/login");
   };
 

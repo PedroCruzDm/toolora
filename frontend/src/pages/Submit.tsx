@@ -7,13 +7,15 @@ import { motion } from "framer-motion";
 import { Link as LinkIcon, Pencil } from "lucide-react";
 import { useRef, useState, type ChangeEvent, type ClipboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { notifySuccess, notifyError } from "@/lib/toast";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FloatingInput } from "@/components/ui/FloatingInput";
+import { FloatingTextarea } from "@/components/ui/FloatingTextarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TagsInput } from "@/components/ui/TagsInput";
-import { Textarea } from "@/components/ui/textarea";
+import { getAuthToken } from "@/lib/auth";
 import api from "@/services/api";
 
 const categories = [
@@ -52,7 +54,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function Submit() {
   const navigate = useNavigate();
-  const isLogged = Boolean(localStorage.getItem("token"));
+  const isLogged = Boolean(getAuthToken());
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -81,12 +83,12 @@ export default function Submit() {
 
   const uploadImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      toast.error("Envie apenas arquivo de imagem.");
+      notifyError("Envie apenas arquivo de imagem.");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("A imagem deve ter no máximo 5MB.");
+      notifyError("A imagem deve ter no máximo 5MB.");
       return;
     }
 
@@ -98,12 +100,12 @@ export default function Submit() {
       const response = await api.post<{ url: string }>("/tools/upload-image", formData);
 
       setValue("screenshot", response.data.url, { shouldDirty: true, shouldValidate: true });
-      toast.success("Imagem enviada com sucesso.");
+      notifySuccess("Imagem enviada com sucesso.");
     } catch (error) {
       const message = axios.isAxiosError(error)
         ? error.response?.data?.error ?? "Não foi possível enviar a imagem."
         : "Não foi possível enviar a imagem.";
-      toast.error(message);
+      notifyError(message);
     } finally {
       setIsUploadingImage(false);
     }
@@ -139,7 +141,7 @@ export default function Submit() {
         tags: data.tags ?? [],
       });
 
-      toast.success("✅ Recomendação enviada com sucesso!", {
+      notifySuccess("Recomendação enviada com sucesso!", {
         description: "Nossa equipe vai analisar em até 48 horas. Obrigado!",
         duration: 5000,
       });
@@ -151,7 +153,7 @@ export default function Submit() {
         ? error.response?.data?.error ?? "Não foi possível enviar sua recomendação."
         : "Não foi possível enviar sua recomendação.";
 
-      toast.error(message);
+      notifyError(message);
     }
   };
 
@@ -188,31 +190,19 @@ export default function Submit() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          <div className="relative">
-            <Input
-              {...register("name")}
-              placeholder=" "
-              className="peer h-14 px-5 pt-6 pb-2 bg-background border border-input rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
-            />
-            <label className="absolute left-5 top-4 text-sm text-muted-foreground peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-xs peer-focus:text-primary transition-all pointer-events-none">
-              Nome da ferramenta
-            </label>
-            <Pencil className="absolute right-5 top-4 h-5 w-5 text-muted-foreground peer-focus:text-primary transition-colors" />
-            {errors.name && <p className="text-sm text-destructive mt-1.5">{errors.name.message}</p>}
-          </div>
+          <FloatingInput
+            {...register("name")}
+            label="Nome da ferramenta"
+            icon={<Pencil className="h-5 w-5" />}
+            error={errors.name?.message}
+          />
 
-          <div className="relative">
-            <Input
-              {...register("url")}
-              placeholder=" "
-              className="peer h-14 px-5 pt-6 pb-2 bg-background border border-input rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none"
-            />
-            <label className="absolute left-5 top-4 text-sm text-muted-foreground peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-xs peer-focus:text-primary transition-all pointer-events-none">
-              Link da ferramenta (https://...)
-            </label>
-            <LinkIcon className="absolute right-5 top-4 h-5 w-5 text-muted-foreground peer-focus:text-primary transition-colors" />
-            {errors.url && <p className="text-sm text-destructive mt-1.5">{errors.url.message}</p>}
-          </div>
+          <FloatingInput
+            {...register("url")}
+            label="Link da ferramenta (https://...)"
+            icon={<LinkIcon className="h-5 w-5" />}
+            error={errors.url?.message}
+          />
 
           <div
             className="space-y-3 rounded-xl border border-input bg-background/70 p-4"
@@ -326,19 +316,13 @@ export default function Submit() {
             {errors.tags && <p className="text-sm text-destructive">{errors.tags.message}</p>}
           </div>
 
-          <div className="relative">
-            <Textarea
-              {...register("description")}
-              placeholder=" "
-              rows={8}
-              className="peer min-h-[180px] px-5 pt-6 pb-2 bg-background border border-input rounded-2xl focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-y outline-none"
-            />
-            <label className="absolute left-5 top-4 text-sm text-muted-foreground peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-xs peer-focus:text-primary transition-all pointer-events-none">
-              Descrição da ferramenta
-            </label>
-            <Pencil className="absolute right-5 top-4 h-5 w-5 text-muted-foreground peer-focus:text-primary transition-colors" />
-            {errors.description && <p className="text-sm text-destructive mt-1.5">{errors.description.message}</p>}
-          </div>
+          <FloatingTextarea
+            {...register("description")}
+            label="Descrição da ferramenta"
+            icon={<Pencil className="h-5 w-5" />}
+            rows={8}
+            error={errors.description?.message}
+          />
 
           <Button
             type="submit"

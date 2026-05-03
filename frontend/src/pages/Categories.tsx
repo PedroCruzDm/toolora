@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { getAuthToken } from "@/lib/auth";
 import api from "@/services/api";
 import { Tool } from "@/types";
 import { ToolCard } from "@/components/ui/card";
@@ -46,7 +47,7 @@ export default function Categories() {
       try {
         const [toolsResponse, interactionsResponse] = await Promise.all([
           api.get<ApprovedToolApiResponse[]>("/tools"),
-          localStorage.getItem("token")
+          getAuthToken()
             ? api.get<ToolInteractionsResponse>("/tools/interactions")
             : Promise.resolve({ data: { likedToolIds: [], favoritedToolIds: [] } }),
         ]);
@@ -107,7 +108,7 @@ export default function Categories() {
   }, [tools, activeCategory, query]);
 
   const requireLoginForInteraction = () => {
-    if (localStorage.getItem("token")) {
+    if (getAuthToken()) {
       return true;
     }
     toast.error("Faca login para curtir e favoritar ferramentas.");

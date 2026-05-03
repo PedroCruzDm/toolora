@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Trash2, AlertTriangle, Upload, X } from "lucide-react";
+import { clearAuthSession, getAuthToken, readStoredAuthUser, updateAuthUser } from "@/lib/auth";
 
 type UserData = {
   id: number;
@@ -50,19 +51,19 @@ export default function Settings() {
   };
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
+    const storedUser = readStoredAuthUser();
     if (storedUser) {
       try {
-        const userData = JSON.parse(storedUser);
+        const userData = storedUser;
         setUser(userData);
-        setName(userData.name);
-        setEmail(userData.email);
+        setName(userData.name ?? "");
+        setEmail(userData.email ?? "");
         setProfileImage(userData.profileImage ?? "");
       } catch {
         navigate("/login");
       }
     } else {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       if (!token) {
         navigate("/login");
       } else {
@@ -166,7 +167,7 @@ export default function Settings() {
       const response = await api.put(`/auth/user/${user?.id}`, payload);
 
       const updatedUser = response.data.user;
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      updateAuthUser(updatedUser);
 
       toast.success("Conta atualizada com sucesso!");
       navigate("/profile");
@@ -201,8 +202,7 @@ export default function Settings() {
         data: { password: deletePassword },
       });
 
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      clearAuthSession();
       toast.success("Conta deletada com sucesso.");
       navigate("/");
     } catch (error) {

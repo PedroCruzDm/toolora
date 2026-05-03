@@ -1,8 +1,7 @@
-// src/components/Navbar.tsx
 import { Link, useNavigate } from "react-router-dom";
-import { LogIn, PlusCircle, Moon, Sun, UserCircle2, ChevronDown, Settings, LogOut } from "lucide-react";
+import { Moon, Sun, UserCircle2, ChevronDown, Settings, LogOut } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AuthSession, hasAdminAccess, hasModeratorAccess, readAuthSession } from "@/lib/auth";
+import { AuthSession, clearAuthSession, getAuthToken, hasAdminAccess, hasModeratorAccess, readAuthSession, updateAuthUser } from "@/lib/auth";
 import { useLocation } from "react-router-dom";
 import api from "@/services/api";
 
@@ -44,7 +43,7 @@ export default function Navbar() {
       const localSession = readAuthSession();
       setAuthUser(localSession);
 
-      if (!localStorage.getItem("token")) {
+      if (!getAuthToken()) {
         setAuthUser(null);
         return;
       }
@@ -62,16 +61,16 @@ export default function Navbar() {
         };
 
         setAuthUser(session);
-        localStorage.setItem("user", JSON.stringify(user));
+        updateAuthUser(user);
       } catch {
         setAuthUser(localSession);
       }
     };
 
     syncAuthState();
-    window.addEventListener("storage", syncAuthState);
+    window.addEventListener("toolora-auth-change", syncAuthState);
 
-    return () => window.removeEventListener("storage", syncAuthState);
+    return () => window.removeEventListener("toolora-auth-change", syncAuthState);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -88,8 +87,7 @@ export default function Navbar() {
   }, [isMenuOpen]);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearAuthSession();
     setAuthUser(null);
     setIsMenuOpen(false);
     navigate("/login");
@@ -113,7 +111,7 @@ export default function Navbar() {
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className={`hidden lg:flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                className={`flex items-center gap-2 rounded-full border px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition-colors ${
                   isAdmin
                     ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-900/70"
                     : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
@@ -123,14 +121,14 @@ export default function Navbar() {
                   <img
                     src={authUser.profileImage}
                     alt={authUser.displayName}
-                    className="h-6 w-6 rounded-full object-cover"
+                    className="h-4 sm:h-6 w-4 sm:w-6 rounded-full object-cover"
                   />
                 ) : (
-                  <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black text-white ${isAdmin ? "bg-red-500" : "bg-emerald-500"}`}>
+                  <div className={`flex h-4 sm:h-6 w-4 sm:w-6 items-center justify-center rounded-full text-[8px] sm:text-[10px] font-black text-white ${isAdmin ? "bg-red-500" : "bg-emerald-500"}`}>
                     {getInitials(authUser?.displayName ?? "Usuário")}
                   </div>
                 )}
-                <span>{authUser?.displayName}</span>
+                <span className="hidden sm:inline">{authUser?.displayName}</span>
                 <ChevronDown className="h-4 w-4" />
               </button>
 
@@ -190,7 +188,8 @@ export default function Navbar() {
                         className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       >
                         <span>Posts revisados</span>
-                      </Link>                    </>
+                      </Link>
+                    </>
                   )}
                   {isModerator && !isAdmin && (
                     <>
@@ -207,99 +206,6 @@ export default function Navbar() {
                         className="flex items-center gap-3 px-4 py-2 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
                       >
                         <span>Solicitar ban</span>
-                      </Link>
-                    </>
-                  )}
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span>Sair</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <Link
-              to="/login"
-              className="flex items-center gap-2 rounded-full border border-gray-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:border-indigo-200 hover:text-indigo-600 dark:border-gray-700 dark:text-gray-200 dark:hover:border-indigo-500 dark:hover:text-indigo-300 transition-colors"
-            >
-              <LogIn className="h-4 w-4" />
-              <span className="hidden sm:inline">Entrar</span>
-            </Link>
-          )}
-          
-          <Link 
-            to="/submit" 
-            className="flex items-center gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm sm:text-base font-semibold rounded-xl sm:rounded-2xl hover:from-indigo-700 hover:to-purple-700 hover:scale-[1.03] hover:shadow-lg transition-all duration-300"
-          >
-            <PlusCircle className="w-5 h-5" />
-            <span className="hidden sm:inline">Recomendar</span>
-          </Link>
-
-          {isLoggedIn && (
-            <div className="md:hidden">
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
-                  isAdmin
-                    ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-900/70"
-                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
-                }`}
-              >
-                {authUser?.profileImage ? (
-                  <img
-                    src={authUser.profileImage}
-                    alt={authUser.displayName}
-                    className="h-4 w-4 rounded-full object-cover"
-                  />
-                ) : (
-                  <UserCircle2 className="h-4 w-4" />
-                )}
-                <ChevronDown className="h-4 w-4" />
-              </button>
-
-              {isMenuOpen && (
-                <div className="absolute right-6 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
-                  <Link
-                    to="/profile"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <UserCircle2 className="h-4 w-4" />
-                    <span>Perfil</span>
-                  </Link>
-                  <Link
-                    to="/settings"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span>Editar perfil</span>
-                  </Link>
-                  {isAdmin && (
-                    <>
-                      <Link
-                        to="/admin/users"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                      >
-                        <span>Usuario</span>
-                      </Link>
-                      <Link
-                        to="/admin/pending-posts"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                      >
-                        <span>Pendentes (aplicar imagem)</span>
-                      </Link>
-                      <Link
-                        to="/admin/requests"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                      >
-                        <span>Solicitações de ban</span>
                       </Link>
                       {authUser?.isOwner && (
                         <Link
@@ -331,7 +237,23 @@ export default function Navbar() {
                 </div>
               )}
             </div>
+          ) : (
+            <Link
+              to="/login"
+              className="flex items-center gap-2 rounded-full border border-gray-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:border-indigo-200 hover:text-indigo-600 dark:border-gray-700 dark:text-gray-200 dark:hover:border-indigo-500 dark:hover:text-indigo-300 transition-colors"
+            >
+              <UserCircle2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Entrar</span>
+            </Link>
           )}
+
+          <Link
+            to="/submit"
+            className="flex items-center gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm sm:text-base font-semibold rounded-xl sm:rounded-2xl hover:from-indigo-700 hover:to-purple-700 hover:scale-[1.03] hover:shadow-lg transition-all duration-300"
+          >
+            <span className="hidden sm:inline">Recomendar</span>
+            <span className="sm:hidden">+</span>
+          </Link>
 
           {/* Toggle Dark Mode */}
          <button

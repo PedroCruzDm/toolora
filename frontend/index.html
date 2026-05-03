@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="google-adsense-account" content="ca-pub-4557264411230792">
     <title>toolora</title>
+    <!-- Prevent flash-of-unstyled-content by keeping page hidden until window.load -->
+    <style>body{opacity:0;transition:opacity .18s ease-in}</style>
   </head>
   <body>
     <div id="root"></div>
@@ -16,11 +18,22 @@
         const s = document.createElement('script');
         s.async = true;
         s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4557264411230792';
+        s.onload = () => console.info('AdSense loaded');
+        s.onerror = (e) => console.warn('Failed to load AdSense script', e);
         document.head.appendChild(s);
       } else {
         // In dev, do not load remote AdSense script — use local test placeholders instead
         // This avoids CORS failures and ad network blocks while developing on localhost.
         // If you need to test real ads, run a production build on an https host.
+      }
+
+      // Reveal page after all synchronous scripts/styles are processed or when window load fires
+      if (typeof window !== 'undefined') {
+        window.addEventListener('load', () => {
+          document.body.style.opacity = '1';
+        });
+        // As a fallback, reveal after 2s to avoid permanently hidden page
+        setTimeout(() => { document.body.style.opacity = '1'; }, 2000);
       }
     </script>
   </body>

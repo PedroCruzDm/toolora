@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
 import { uploadsRootDir } from './src/config/uploads';
@@ -64,5 +65,20 @@ app.get('/health', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend Node.js rodando!' });
 });
+
+// Optional: serve frontend build and enable SPA fallback when running as a single-host service.
+// Set SERVE_FRONTEND=true in the environment (Render or similar) to enable.
+if (process.env.SERVE_FRONTEND === 'true') {
+  const staticPath = path.join(process.cwd(), 'frontend', 'dist');
+  app.use(express.static(staticPath));
+
+  app.get('*', (req, res) => {
+    // Let API, uploads and health endpoints continue to function
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/health')) {
+      return res.status(404).end();
+    }
+    return res.sendFile(path.join(staticPath, 'index.html'));
+  });
+}
 
 export default app;

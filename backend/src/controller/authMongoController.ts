@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
+import { randomBytes, createHash } from 'crypto';
 import { generateToken } from '../services/jwt.service';
 import { getMongoDb } from '../config/mongo';
+import { sendPasswordResetEmail } from '../services/mailer.service';
 
 const mapAuthUser = (user: any) => ({
   id: user._id.toString(),
@@ -14,6 +16,14 @@ const mapAuthUser = (user: any) => ({
   isBanned: Boolean(user.is_banned),
   profileImage: user.profile_image ?? null,
 });
+
+const TOKEN_TTL_MINUTES = 15;
+
+const normalizeEmail = (email: unknown) => (typeof email === 'string' ? email.trim().toLowerCase() : '');
+
+const generateResetCode = () => randomBytes(3).toString('hex').toUpperCase();
+
+const hashResetCode = (code: string) => createHash('sha256').update(code).digest('hex');
 
 export const register = async (req: Request, res: Response) => {
   const { name, email, password, profileImage } = req.body;
@@ -263,5 +273,118 @@ export const currentSession = async (req: Request, res: Response) => {
     });
   } catch (error) {
     return res.status(500).json({ error: 'Erro interno ao recuperar sessão.' });
+  }
+};
+
+export const requestPasswordReset = async (req: Request, res: Response) => {
+  const email = normalizeEmail(req.body?.email);
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email é obrigatório.' });
+  }
+
+  try {
+    const db = await getMongoDb();
+    const users = db.collection('users');
+    const resetTokens = db.collection('password_reset_tokens');
+
+    await resetTokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+    const user = await users.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'Email não encontrado.' });
+    }
+
+    await resetTokens.deleteMany({ userId: user._id.toString() });
+
+    const resetCode = generateResetCode();
+    const resetCodeHash = hashResetCode(resetCode);
+    const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000);
+
+    await resetTokens.insertOne({
+      userId: user._id.toString(),
+      email: user.email,
+      codeHash: resetCodeHash,
+      expiresAt,
+      createdAt: new Date(),
+      usedAt: null,
+    });
+
+    const publicBaseUrl = process.env.APP_PUBLIC_URL?.replace(/\/$/, '') ?? 'http://localhost:5173';
+    const resetUrl = `${publicBaseUrl}/reset-password?email=${encodeURIComponent(email)}&code=${encodeURIComponent(resetCode)}`;
+
+    try {
+      await sendPasswordResetEmail({
+        to: user.email,
+        name: user.username,
+        code: resetCode,
+        resetUrl,
+        expiresInMinutes: TOKEN_TTL_MINUTES,
+      });
+    } catch (emailError) {
+      await resetTokens.deleteMany({ userId: user._id.toString(), codeHash: resetCodeHash });
+      return res.status(500).json({ error: 'Não foi possível enviar o email de recuperação.' });
+    }
+
+    return res.json({
+      message: 'Código de recuperação gerado com sucesso.',
+      resetCode,
+      resetUrl,
+      expiresInMinutes: TOKEN_TTL_MINUTES,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro interno ao gerar recuperação de senha.' });
+  }
+};
+
+export const confirmPasswordReset = async (req: Request, res: Response) => {
+  const email = normalizeEmail(req.body?.email);
+  const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
+  const newPassword = typeof req.body?.password === 'string' ? req.body.password : '';
+
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ error: 'Email, código e nova senha são obrigatórios.' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+  }
+
+  try {
+    const db = await getMongoDb();
+    const users = db.collection('users');
+    const resetTokens = db.collection('password_reset_tokens');
+
+    const token = await resetTokens.findOne({
+      email,
+      codeHash: hashResetCode(code),
+      usedAt: null,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!token) {
+      return res.status(400).json({ error: 'Código inválido ou expirado.' });
+    }
+
+    const user = await users.findOne({ _id: new ObjectId(token.userId) });
+    if (!user || user.email !== email) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await users.updateOne(
+      { _id: new ObjectId(token.userId) },
+      { $set: { password: hashedPassword } }
+    );
+
+    await resetTokens.updateOne(
+      { _id: token._id },
+      { $set: { usedAt: new Date() } }
+    );
+
+    return res.json({ message: 'Senha redefinida com sucesso.' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro interno ao redefinir senha.' });
   }
 };

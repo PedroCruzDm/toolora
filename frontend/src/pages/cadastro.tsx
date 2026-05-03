@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
+import { saveAuthSession } from "@/lib/auth";
 
 type RegisterResponse = {
 	token: string;
@@ -38,8 +39,7 @@ export default function Cadastro() {
 				password,
 			});
 
-			localStorage.setItem("token", response.data.token);
-			localStorage.setItem("user", JSON.stringify(response.data.user));
+			saveAuthSession(response.data.token, response.data.user);
 			toast.success("Conta criada com sucesso!");
 			navigate("/");
 		} catch (error) {

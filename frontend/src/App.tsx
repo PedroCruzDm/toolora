@@ -5,6 +5,7 @@ import Categories from "@/pages/Categories";
 import Submit from "@/pages/Submit";
 import Cadastro from "@/pages/cadastro";
 import Login from "@/pages/login";
+import ForgotPassword from "@/pages/ForgotPassword";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import DeleteAccount from "@/pages/DeleteAccount";
@@ -28,6 +29,8 @@ function App() {
             <Route path="/submit" element={<Submit />} />
             <Route path="/cadastro" element={<Cadastro />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ForgotPassword />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/delete-account" element={<DeleteAccount />} />
@@ -39,7 +42,15 @@ function App() {
           </Routes>
         </main>
 
-        <Toaster richColors position="top-center" />
+        <Toaster
+          richColors
+          position="top-center"
+          duration={4500}
+          visibleToasts={1}
+          gap={12}
+          closeButton
+          icons={{ success: null, info: null, warning: null, error: null, loading: null, close: null }}
+        />
       </div>
     </Router>
   );
