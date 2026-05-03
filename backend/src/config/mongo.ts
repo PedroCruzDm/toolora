@@ -3,7 +3,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const mongoUri = process.env.MONGODB_URI ?? 'mongodb://localhost:27017/toolora';
+const mongoUri = process.env.MONGODB_URI ?? 'mongodb://localhost:27017/toolora_db';
+const mongoDbName = process.env.MONGODB_DB ?? process.env.DB_NAME ?? 'toolora_db';
 
 let client: MongoClient | null = null;
 let dbPromise: Promise<Db> | null = null;
@@ -21,10 +22,10 @@ const connectMongo = async () => {
     await client.connect();
 
     await client.db('admin').command({ ping: 1 });
-    console.log('Pinged your deployment. You successfully connected to MongoDB!');
+    console.log(`Pinged your deployment. Connected to MongoDB database "${mongoDbName}"!`);
   }
 
-  return client.db();
+  return client.db(mongoDbName);
 };
 
 export const getMongoDb = async () => {
