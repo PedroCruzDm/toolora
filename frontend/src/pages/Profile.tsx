@@ -80,7 +80,12 @@ export default function Profile() {
     const storedUser = readStoredAuthUser();
     if (storedUser) {
       try {
-        setUser(storedUser);
+        setUser({
+          id: storedUser.id ?? 0,
+          name: storedUser.name ?? "",
+          email: storedUser.email ?? "",
+          profileImage: storedUser.profileImage ?? null,
+        });
       } catch {
         navigate("/login");
       }

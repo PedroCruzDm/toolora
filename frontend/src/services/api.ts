@@ -1,7 +1,16 @@
 import axios from 'axios';
+import { clearAuthSession, getAuthToken } from '@/lib/auth';
+
+// Default to production API to avoid localhost CORS/network errors when local backend is down.
+// You can override in-browser by setting localStorage key `dev_api_base_url`.
+const manualDevApiBaseUrl =
+  typeof window !== 'undefined' ? window.localStorage.getItem('dev_api_base_url') : null;
+
+const resolvedBaseUrl =
+  manualDevApiBaseUrl?.trim() || 'https://toolora-backend.onrender.com/api';
 
 const api = axios.create({
-  baseURL: 'https://toolora-backend.onrender.com/api',
+  baseURL: resolvedBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -10,7 +19,7 @@ const api = axios.create({
 
 // Add JWT token to requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -54,8 +63,7 @@ api.interceptors.response.use(
 
     // Handle auth errors
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      clearAuthSession();
       window.location.href = '/login';
     }
     

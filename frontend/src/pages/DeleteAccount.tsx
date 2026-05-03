@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { AlertCircle, ArrowLeft, Trash2 } from "lucide-react";
+import { clearAuthSession, readStoredAuthUser } from "@/lib/auth";
 
 type UserData = {
   id: number;
@@ -23,13 +24,13 @@ export default function DeleteAccount() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        navigate("/login");
-      }
+    const storedUser = readStoredAuthUser();
+    if (storedUser?.id && storedUser.name && storedUser.email) {
+      setUser({
+        id: storedUser.id,
+        name: storedUser.name,
+        email: storedUser.email,
+      });
     } else {
       navigate("/login");
     }
@@ -55,8 +56,7 @@ export default function DeleteAccount() {
         data: { password },
       });
 
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      clearAuthSession();
 
       toast.success("Conta deletada com sucesso.");
       navigate("/");

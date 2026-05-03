@@ -7,6 +7,7 @@
     "test:smoke": "node ./scripts/api-smoke.js",
     "test:security": "node ./scripts/security-smoke.js",
     "build": "tsc",
+    "build:with-frontend": "(cd ../frontend && npm ci && npm run build) && mkdir -p frontend && rm -rf frontend/dist && cp -r ../frontend/dist frontend/dist && tsc",
     "start": "node dist/server.js"
   },
   "dependencies": {

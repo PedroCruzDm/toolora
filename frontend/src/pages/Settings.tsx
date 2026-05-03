@@ -54,7 +54,12 @@ export default function Settings() {
     const storedUser = readStoredAuthUser();
     if (storedUser) {
       try {
-        const userData = storedUser;
+        const userData = {
+          id: storedUser.id ?? 0,
+          name: storedUser.name ?? "",
+          email: storedUser.email ?? "",
+          profileImage: storedUser.profileImage ?? null,
+        };
         setUser(userData);
         setName(userData.name ?? "");
         setEmail(userData.email ?? "");

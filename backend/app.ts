@@ -69,16 +69,37 @@ app.get('/api/health', (req, res) => {
 // Optional: serve frontend build and enable SPA fallback when running as a single-host service.
 // Set SERVE_FRONTEND=true in the environment (Render or similar) to enable.
 if (process.env.SERVE_FRONTEND === 'true') {
-  const staticPath = path.join(process.cwd(), 'frontend', 'dist');
-  app.use(express.static(staticPath));
+  // Resolve frontend build folder robustly. When running the backend process
+  // the current working directory may be either the repo root or the backend folder.
+  // Try multiple candidate locations and pick the first that exists.
+  const fs = require('fs');
+  const candidates = [
+    path.join(process.cwd(), 'frontend', 'dist'), // if started from repo root
+    path.join(process.cwd(), '..', 'frontend', 'dist'), // if started from backend/ folder
+    path.join(__dirname, '..', '..', 'frontend', 'dist'), // relative to compiled JS files
+  ];
 
-  app.get('*', (req, res) => {
-    // Let API, uploads and health endpoints continue to function
-    if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/health')) {
-      return res.status(404).end();
+  const staticPath = candidates.find((p) => {
+    try {
+      return fs.existsSync(p);
+    } catch {
+      return false;
     }
-    return res.sendFile(path.join(staticPath, 'index.html'));
   });
+
+  if (staticPath) {
+    app.use(express.static(staticPath));
+
+    app.get('*', (req, res) => {
+      // Let API, uploads and health endpoints continue to function
+      if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/health')) {
+        return res.status(404).end();
+      }
+      return res.sendFile(path.join(staticPath, 'index.html'));
+    });
+  } else {
+    console.warn('SERVE_FRONTEND=true set but no frontend build found in expected locations:', candidates);
+  }
 }
 
 export default app;
