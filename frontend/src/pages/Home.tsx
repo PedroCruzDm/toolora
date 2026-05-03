@@ -207,7 +207,7 @@ export default function Home() {
               size="lg" 
               variant="outline" 
               className="px-12 py-8 text-xl rounded-2xl border-2 border-primary text-primary hover:bg-primary/10 transition-all duration-300"
-              onClick={() => { window.location.href = '/submit'; }}
+              onClick={() => navigate('/submit')}
             >
               Recomendar ferramenta
             </Button>
