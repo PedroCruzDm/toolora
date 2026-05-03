@@ -153,7 +153,7 @@ export const listApprovedTools = async (_req: Request, res: Response) => {
     const rows = await toolCollection
       .find({ status: 'approved', blockedByOwner: false })
       .sort({ approvedAt: -1, createdAt: -1 })
-      .limit(100) // Limit to prevent large payload timeouts
+      .limit(50) // Reduce limit for faster response
       .toArray();
 
     return res.json(rows.map(toToolResponse));

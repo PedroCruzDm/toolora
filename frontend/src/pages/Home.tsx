@@ -48,6 +48,13 @@ export default function Home() {
   useEffect(() => {
     const fetchApprovedTools = async () => {
       try {
+        // Wake up the Render backend by pinging health endpoint first
+        try {
+          await api.get("/health", { timeout: 30000 });
+        } catch (healthError) {
+          console.warn("Health check failed, proceeding anyway:", healthError);
+        }
+
         const [toolsResponse, interactionsResponse] = await Promise.all([
           api.get<ApprovedToolApiResponse[]>("/tools"),
           localStorage.getItem("token")

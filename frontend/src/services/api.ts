@@ -5,10 +5,10 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 45000, // 45 seconds for slow connections
+  timeout: 120000, // 120 seconds for Render cold start
 });
 
-// Interceptor para adicionar token automaticamente
+// Add JWT token to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -17,22 +17,39 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor para tratar erros de autenticação e timeouts
+// Retry interceptor for timeout/connection errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // Handle timeout errors
-    if (error.code === 'ECONNABORTED' || error.message === 'timeout of 45000ms exceeded') {
-      console.error('Request timeout - server may be slow (Render cold start?)');
-      // Don't redirect on timeout, let component handle retry
-      return Promise.reject(error);
+  async (error) => {
+    const config = error.config;
+    
+    // Retry configuration
+    if (!config.retryCount) {
+      config.retryCount = 0;
     }
     
+    // Only retry on timeout or connection errors, max 2 retries
+    const shouldRetry = 
+      (error.code === 'ECONNABORTED' || error.message.includes('timeout')) &&
+      config.retryCount < 2;
+    
+    if (shouldRetry) {
+      config.retryCount += 1;
+      // Exponential backoff: 1s, then 2s
+      const delay = Math.pow(2, config.retryCount - 1) * 1000;
+      console.log(`Retry attempt ${config.retryCount} after ${delay}ms...`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return api(config);
+    }
+
+    // Handle auth errors
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    
     return Promise.reject(error);
   }
 );
