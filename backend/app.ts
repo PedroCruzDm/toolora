@@ -12,24 +12,38 @@ dotenv.config();
 
 const app = express();
 
-// CORS configuration with explicit origin validation
-const allowedOrigins = [
+// CORS configuration with explicit origin validation.
+// Allow additional production frontends via env variable `FRONTEND_ORIGINS`
+const defaultOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:5175',
   'https://toolora-7a2w.onrender.com',
   'https://toolora-backend.onrender.com',
+  'https://toolora.com.br',
+  'https://www.toolora.com.br',
 ];
 
+const extraOrigins = process.env.FRONTEND_ORIGINS
+  ? process.env.FRONTEND_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+  : [];
+
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...extraOrigins]));
+
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // If no origin (same-site or server-to-server), allow
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   optionsSuccessStatus: 200, // Some legacy browsers (IE11) return 204 but expect 200
 }));
 
-// Explicit preflight handler to ensure OPTIONS always returns CORS headers
+// Explicit preflight handler to ensure OPTIONS always returns CORS headers for allowed origins
 app.options('*', cors({ origin: allowedOrigins, credentials: true }));
 
 // Allow larger JSON payloads because profile images are sent as base64 data URLs on user update.
@@ -43,6 +57,11 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/tools', toolRoutes);
 
 app.get('/health', (req, res) => {
+  res.json({ status: 'Backend Node.js rodando!' });
+});
+
+// Keep compatibility with frontend which may call `/api/health`
+app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend Node.js rodando!' });
 });
 
