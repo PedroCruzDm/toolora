@@ -175,12 +175,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
       {/* Hero */}
-      <section className="pt-40 pb-24 px-6 md:px-12 lg:px-16 bg-card border-b border-border">
+      <section className="pt-32 sm:pt-36 md:pt-40 pb-16 sm:pb-24 px-4 sm:px-6 md:px-12 lg:px-16 bg-card border-b border-border">
         <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-8 text-foreground">
+          <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-6 sm:mb-8 text-foreground leading-tight">
             Todas as ferramentas<br />que você precisa
           </h1>
-          <p className="text-xl md:text-2xl lg:text-3xl text-muted-foreground max-w-4xl mx-auto mb-12 leading-relaxed">
+          <p className="text-base sm:text-xl md:text-2xl lg:text-3xl text-muted-foreground max-w-4xl mx-auto mb-10 sm:mb-12 leading-relaxed">
             O diretório mais completo do Brasil para designers, devs, criadores e empreendedores
           </p>
 
@@ -190,23 +190,23 @@ export default function Home() {
                 placeholder="Busque por ferramenta, categoria ou palavra-chave..."
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                className="pl-14 pr-6 py-8 text-lg rounded-2xl border border-input bg-background text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-lg transition-colors"
+                className="pl-12 sm:pl-14 pr-4 sm:pr-6 py-6 sm:py-8 text-base sm:text-lg rounded-2xl border border-input bg-background text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-lg transition-colors"
               />
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground" />
+              <Search className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 h-5 w-5 sm:h-7 sm:w-7 text-muted-foreground" />
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
             <Button 
               size="lg" 
-              className="px-12 py-8 text-xl rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.03] hover:shadow-xl transition-all duration-300 shadow-lg"
+              className="w-full sm:w-auto px-6 sm:px-12 py-5 sm:py-8 text-base sm:text-xl rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.03] hover:shadow-xl transition-all duration-300 shadow-lg"
             >
               Explorar ferramentas
             </Button>
             <Button 
               size="lg" 
               variant="outline" 
-              className="px-12 py-8 text-xl rounded-2xl border-2 border-primary text-primary hover:bg-primary/10 transition-all duration-300"
+              className="w-full sm:w-auto px-6 sm:px-12 py-5 sm:py-8 text-base sm:text-xl rounded-2xl border-2 border-primary text-primary hover:bg-primary/10 transition-all duration-300"
               onClick={() => navigate('/submit')}
             >
               Recomendar ferramenta
@@ -216,7 +216,7 @@ export default function Home() {
       </section>
 
       {/* Lista de ferramentas */}
-      <section className="max-w-screen-2xl mx-auto px-6 lg:px-12 xl:px-16 py-24 bg-background">
+      <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 py-16 sm:py-24 bg-background">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 xl:gap-16">
           <div className="lg:col-span-9 xl:col-span-10">
             {loading ? (

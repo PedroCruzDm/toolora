@@ -97,23 +97,23 @@ export default function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-white dark:bg-gray-900 shadow-sm transition-colors">
-      <div className="max-w-screen-2xl mx-auto px-6 lg:px-12 py-4 flex items-center justify-between">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-12 py-3 sm:py-4 flex items-center justify-between gap-3">
         <Link to="/" className="flex items-center gap-3">
-          <img src="/logo.png" alt="Toolora" className="h-10" />
-          <span className="font-extrabold text-3xl tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
+          <img src="/logo.png" alt="Toolora" className="h-8 sm:h-10" />
+          <span className="font-extrabold text-xl sm:text-3xl tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
             Toolora
           </span>
         </Link>
 
-        <div className="flex items-center gap-8 text-base font-medium">
-          <Link to="/" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Início</Link>
-          <Link to="/categorias" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Categorias</Link>
+        <div className="flex items-center gap-2 sm:gap-3 lg:gap-6 text-sm sm:text-base font-medium">
+          <Link to="/" className="hidden lg:inline-flex hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Início</Link>
+          <Link to="/categorias" className="hidden lg:inline-flex hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Categorias</Link>
           
           {isLoggedIn ? (
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className={`hidden md:flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                className={`hidden lg:flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
                   isAdmin
                     ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-900/70"
                     : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
@@ -223,19 +223,19 @@ export default function Navbar() {
           ) : (
             <Link
               to="/login"
-              className="hidden md:flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-indigo-200 hover:text-indigo-600 dark:border-gray-700 dark:text-gray-200 dark:hover:border-indigo-500 dark:hover:text-indigo-300 transition-colors"
+              className="flex items-center gap-2 rounded-full border border-gray-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:border-indigo-200 hover:text-indigo-600 dark:border-gray-700 dark:text-gray-200 dark:hover:border-indigo-500 dark:hover:text-indigo-300 transition-colors"
             >
               <LogIn className="h-4 w-4" />
-              Entrar
+              <span className="hidden sm:inline">Entrar</span>
             </Link>
           )}
           
           <Link 
             to="/submit" 
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-2xl hover:from-indigo-700 hover:to-purple-700 hover:scale-[1.03] hover:shadow-lg transition-all duration-300"
+            className="flex items-center gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm sm:text-base font-semibold rounded-xl sm:rounded-2xl hover:from-indigo-700 hover:to-purple-700 hover:scale-[1.03] hover:shadow-lg transition-all duration-300"
           >
             <PlusCircle className="w-5 h-5" />
-            Recomendar
+            <span className="hidden sm:inline">Recomendar</span>
           </Link>
 
           {isLoggedIn && (
@@ -336,7 +336,7 @@ export default function Navbar() {
           {/* Toggle Dark Mode */}
          <button
           onClick={() => setDarkMode(!darkMode)}
-          className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700"
+          className="p-2 sm:p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700"
           aria-label="Alternar modo escuro"
         >
         {darkMode ? (

@@ -83,6 +83,7 @@
     body {
         @apply bg-background text-foreground antialiased;
         min-height: 100vh;
+        overflow-x: hidden;
     }
 
     input:-webkit-autofill,
