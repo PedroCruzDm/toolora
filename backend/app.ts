@@ -32,7 +32,9 @@ app.use(cors({
 // Explicit preflight handler to ensure OPTIONS always returns CORS headers
 app.options('*', cors({ origin: allowedOrigins, credentials: true }));
 
-app.use(express.json());
+// Allow larger JSON payloads because profile images are sent as base64 data URLs on user update.
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(uploadsRootDir));
 
 app.use('/api/auth', authRoutes);
