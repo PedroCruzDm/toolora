@@ -72,6 +72,13 @@ run_backend_checks() {
   step "Backend: API smoke"
   if curl -fsS "${QC_API_URL:-http://localhost:8080}/api/tools" >/dev/null 2>&1; then
     run_phase "Backend API smoke" bash -lc "cd '$BACKEND_DIR' && npm run test:smoke"
+    step "Backend: E2E user flow"
+    if curl -fsS "${QC_API_URL:-http://localhost:8080}/api/tools" >/dev/null 2>&1; then
+      run_phase "Backend E2E user flow" bash -lc "cd '$BACKEND_DIR' && node ./scripts/e2e-user-flow.js"
+    else
+      warn "API indisponível; pulando E2E user flow"
+      record_result "Backend E2E user flow" "SKIP"
+    fi
   else
     warn "API indisponível em ${QC_API_URL:-http://localhost:8080}; pulando backend API smoke"
     record_result "Backend API smoke" "SKIP"
@@ -143,7 +150,7 @@ check_docker_services() {
     if [[ -z "$token" ]]; then
       fail "Login retornou sem token"
       record_result "API autenticada" "FAIL"
-    elif curl -fsS http://localhost:8080/api/admin/users -H "Authorization: Bearer $token" >/dev/null; then
+    elif curl -fsS http://localhost:8080/api/management/users -H "Authorization: Bearer $token" >/dev/null; then
       ok "Rotas autenticadas de admin respondendo"
       record_result "API autenticada" "PASS"
     else

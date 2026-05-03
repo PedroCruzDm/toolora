@@ -144,13 +144,23 @@ export const createTool = async (req: Request, res: Response) => {
 };
 
 export const listApprovedTools = async (_req: Request, res: Response) => {
-  const toolCollection = await getToolCollection();
-  const rows = await toolCollection
-    .find({ status: 'approved', blockedByOwner: false })
-    .sort({ approvedAt: -1, createdAt: -1 })
-    .toArray();
+  try {
+    const toolCollection = await getToolCollection();
+    
+    // Create index if it doesn't exist for faster queries
+    await toolCollection.createIndex({ status: 1, blockedByOwner: 1, approvedAt: -1 });
+    
+    const rows = await toolCollection
+      .find({ status: 'approved', blockedByOwner: false })
+      .sort({ approvedAt: -1, createdAt: -1 })
+      .limit(100) // Limit to prevent large payload timeouts
+      .toArray();
 
-  return res.json(rows.map(toToolResponse));
+    return res.json(rows.map(toToolResponse));
+  } catch (error) {
+    console.error('Error fetching approved tools:', error);
+    return res.status(500).json({ error: 'Failed to fetch approved tools' });
+  }
 };
 
 export const listMyTools = async (req: Request, res: Response) => {
