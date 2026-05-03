@@ -1,25 +1,11 @@
 import axios from 'axios';
 
-// Determine API URL: use VITE environment variable, fallback to Render production, then localhost for dev
-const getApiUrl = () => {
-  // In Vite, import.meta.env.VITE_* variables are embedded during build
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  // Production default
-  if (import.meta.env.PROD) {
-    return 'https://toolora-backend.onrender.com/api';
-  }
-  // Development default
-  return 'http://localhost:8080/api';
-};
-
 const api = axios.create({
-  baseURL: getApiUrl(),
+  baseURL: 'https://toolora-backend.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 45000, // 45 seconds for slow connections (Render free tier cold start)
+  timeout: 45000, // 45 seconds for slow connections
 });
 
 // Interceptor para adicionar token automaticamente
