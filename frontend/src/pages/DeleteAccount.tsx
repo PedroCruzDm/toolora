@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { AlertCircle, ArrowLeft, Trash2 } from "lucide-react";
-import { clearAuthSession, readStoredAuthUser } from "@/lib/auth";
+import { clearAuthSession } from "@/lib/auth";
+import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
 
 type UserData = {
   id: number;
@@ -22,18 +23,24 @@ export default function DeleteAccount() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { user: authUser, ready } = useAuthBootstrap();
 
   useEffect(() => {
-    const storedUser = readStoredAuthUser();
-    if (storedUser?.id && storedUser.name && storedUser.email) {
-      setUser({
-        id: storedUser.id,
-        name: storedUser.name,
-        email: storedUser.email,
-      });
-    } else {
-      navigate("/login");
+    if (!ready) {
+      return;
     }
+
+    if (!authUser) {
+      navigate("/login");
+      setLoading(false);
+      return;
+    }
+
+    setUser({
+      id: Number(authUser.id) || 0,
+      name: authUser.name,
+      email: authUser.email,
+    });
     setLoading(false);
   }, [navigate]);
 

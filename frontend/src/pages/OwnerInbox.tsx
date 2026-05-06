@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
-import { readAuthSession } from "@/lib/auth";
+import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
 
 type InboxMessage = {
   id: number;
@@ -25,12 +25,16 @@ const roleLabel: Record<InboxMessage["senderRole"], string> = {
 
 export default function OwnerInbox() {
   const navigate = useNavigate();
-  const session = useMemo(() => readAuthSession(), []);
+  const { user: session, ready } = useAuthBootstrap();
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [readLoadingId, setReadLoadingId] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
     if (!session?.isOwner) {
       toast.error("Acesso restrito ao owner.");
       navigate("/");
@@ -53,7 +57,7 @@ export default function OwnerInbox() {
     };
 
     loadInbox();
-  }, [navigate, session]);
+  }, [navigate, session, ready]);
 
   const markAsRead = async (messageId: number) => {
     setReadLoadingId(messageId);

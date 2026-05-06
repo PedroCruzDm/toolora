@@ -3,20 +3,7 @@ import { authMiddleware } from '../middlewares/authMiddleware';
 import { adminMiddleware, moderatorMiddleware, ownerMiddleware } from '../middlewares/roleMiddleware';
 import { rateLimits } from '../middlewares/rateLimitMiddleware';
 import { auditMiddleware, AuditAction } from '../middlewares/auditMiddleware';
-import {
-  listAllUsers,
-  setUserRole,
-  banUser,
-  unbanUser,
-  getUserStats,
-  sendWarningMessage,
-  createModerationRequest,
-  listModerationRequests,
-  reviewModerationRequest,
-  blockPost,
-  unblockPost,
-  getAuditLogs,
-} from '../controller/userMongoController';
+import { listAllUsers, setUserRole, banUser, unbanUser, getUserStats, sendWarningMessage, createModerationRequest, listModerationRequests, reviewModerationRequest, blockPost, unblockPost, getAuditLogs } from '../controller/userMongoController';
 
 const router = Router();
 

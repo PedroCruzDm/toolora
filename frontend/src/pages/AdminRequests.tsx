@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
-import { hasModeratorAccess, readAuthSession } from "@/lib/auth";
+import { hasModeratorAccess } from "@/lib/auth";
+import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
 
 type ModerationRequest = {
   id: number;
@@ -31,7 +32,7 @@ type ToolOption = {
 
 export default function AdminRequests() {
   const navigate = useNavigate();
-  const session = useMemo(() => readAuthSession(), []);
+  const { user: session, ready } = useAuthBootstrap();
   const [requests, setRequests] = useState<ModerationRequest[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [tools, setTools] = useState<ToolOption[]>([]);
@@ -43,6 +44,10 @@ export default function AdminRequests() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
     if (!hasModeratorAccess(session)) {
       toast.error("Acesso restrito à moderação.");
       navigate("/");
@@ -72,7 +77,7 @@ export default function AdminRequests() {
     };
 
     load();
-  }, [navigate, session]);
+  }, [navigate, session, ready]);
 
   const reload = async () => {
     const response = await api.get<ModerationRequest[]>('/management/requests');

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthSession, clearAuthSession, getAuthToken, hasAdminAccess, hasModeratorAccess, readAuthSession, updateAuthUser } from "@/lib/auth";
 import { useLocation } from "react-router-dom";
 import api from "@/services/api";
+import { HomeView, useHomeView } from "@/lib/homeView";
 
 const getInitials = (value: string) =>
   value
@@ -16,6 +17,7 @@ const getInitials = (value: string) =>
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setView } = useHomeView();
   const [authUser, setAuthUser] = useState<AuthSession | null>(() => readAuthSession());
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true' ||
@@ -93,10 +95,17 @@ export default function Navbar() {
     navigate("/login");
   };
 
+  const handleMainViewChange = (next: HomeView) => {
+    setView(next);
+    if (location.pathname !== "/") {
+      navigate("/");
+    }
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-white dark:bg-gray-900 shadow-sm transition-colors">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-12 py-3 sm:py-4 flex items-center justify-between gap-3">
-        <Link to="/" className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3" onClick={() => setView("inicio")}>
           <img src="/logo.png" alt="Toolora" className="h-8 sm:h-10" />
           <span className="font-extrabold text-xl sm:text-3xl tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
             Toolora
@@ -104,8 +113,20 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3 lg:gap-6 text-sm sm:text-base font-medium">
-          <Link to="/" className="hidden lg:inline-flex hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Início</Link>
-          <Link to="/categorias" className="hidden lg:inline-flex hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Categorias</Link>
+          <button
+            type="button"
+            onClick={() => handleMainViewChange("inicio")}
+            className="hidden lg:inline-flex hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          >
+            Início
+          </button>
+          <button
+            type="button"
+            onClick={() => handleMainViewChange("categorias")}
+            className="hidden lg:inline-flex hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          >
+            Categorias
+          </button>
           
           {isLoggedIn ? (
             <div ref={menuRef} className="relative">
@@ -152,80 +173,95 @@ export default function Navbar() {
                   </Link>
                   {isAdmin && (
                     <>
-                      <Link
-                        to="/admin/users"
-                        onClick={() => setIsMenuOpen(false)}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleMainViewChange("admin-users");
+                          setIsMenuOpen(false);
+                        }}
                         className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       >
                         <span>Usuario</span>
-                      </Link>
-                      <Link
-                        to="/admin/pending-posts"
-                        onClick={() => setIsMenuOpen(false)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleMainViewChange("admin-pending-posts");
+                          setIsMenuOpen(false);
+                        }}
                         className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       >
                         <span>Pendentes (aplicar imagem)</span>
-                      </Link>
-                      <Link
-                        to="/admin/requests"
-                        onClick={() => setIsMenuOpen(false)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleMainViewChange("admin-requests");
+                          setIsMenuOpen(false);
+                        }}
                         className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       >
                         <span>Solicitações de ban</span>
-                      </Link>
+                      </button>
                       {authUser?.isOwner && (
-                        <Link
-                          to="/admin/inbox"
-                          onClick={() => setIsMenuOpen(false)}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleMainViewChange("admin-inbox");
+                            setIsMenuOpen(false);
+                          }}
                           className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         >
                           <span>Caixa de mensagens</span>
-                        </Link>
+                        </button>
                       )}
-                      <Link
-                        to="/admin/reviewed-posts"
-                        onClick={() => setIsMenuOpen(false)}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleMainViewChange("admin-reviewed-posts");
+                          setIsMenuOpen(false);
+                        }}
                         className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       >
                         <span>Posts revisados</span>
-                      </Link>
+                      </button>
                     </>
                   )}
                   {isModerator && !isAdmin && (
                     <>
-                      <Link
-                        to="/admin/pending-posts"
-                        onClick={() => setIsMenuOpen(false)}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleMainViewChange("admin-pending-posts");
+                          setIsMenuOpen(false);
+                        }}
                         className="flex items-center gap-3 px-4 py-2 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
                       >
                         <span>Moderação de posts</span>
-                      </Link>
-                      <Link
-                        to="/admin/requests"
-                        onClick={() => setIsMenuOpen(false)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleMainViewChange("admin-requests");
+                          setIsMenuOpen(false);
+                        }}
                         className="flex items-center gap-3 px-4 py-2 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
                       >
                         <span>Solicitar ban</span>
-                      </Link>
+                      </button>
                       {authUser?.isOwner && (
-                        <Link
-                          to="/admin/inbox"
-                          onClick={() => setIsMenuOpen(false)}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleMainViewChange("admin-inbox");
+                            setIsMenuOpen(false);
+                          }}
                           className="flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         >
                           <span>Caixa de mensagens</span>
-                        </Link>
+                        </button>
                       )}
                     </>
-                  )}
-                  {isModerator && !isAdmin && (
-                    <Link
-                      to="/admin/requests"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                    >
-                      <span>Solicitar ban</span>
-                    </Link>
                   )}
                   <button
                     onClick={handleLogout}
@@ -247,13 +283,14 @@ export default function Navbar() {
             </Link>
           )}
 
-          <Link
-            to="/submit"
+          <button
+            type="button"
+            onClick={() => handleMainViewChange("recomendar")}
             className="flex items-center gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm sm:text-base font-semibold rounded-xl sm:rounded-2xl hover:from-indigo-700 hover:to-purple-700 hover:scale-[1.03] hover:shadow-lg transition-all duration-300"
           >
             <span className="hidden sm:inline">Recomendar</span>
             <span className="sm:hidden">+</span>
-          </Link>
+          </button>
 
           {/* Toggle Dark Mode */}
          <button

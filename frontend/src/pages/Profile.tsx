@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { User, Mail, Calendar, LogOut } from "lucide-react";
 import api from "@/services/api";
-import { clearAuthSession, getAuthToken, readStoredAuthUser } from "@/lib/auth";
+import { clearAuthSession } from "@/lib/auth";
+import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
 
 type UserData = {
   id: number;
@@ -12,13 +13,6 @@ type UserData = {
   email: string;
   profileImage?: string | null;
   created_at?: string;
-};
-
-type JwtPayload = {
-  userId?: number;
-  email?: string;
-  name?: string;
-  profileImage?: string | null;
 };
 
 type Recommendation = {
@@ -75,40 +69,27 @@ export default function Profile() {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [messagesError, setMessagesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user: authUser, ready } = useAuthBootstrap();
 
   useEffect(() => {
-    const storedUser = readStoredAuthUser();
-    if (storedUser) {
-      try {
-        setUser({
-          id: storedUser.id ?? 0,
-          name: storedUser.name ?? "",
-          email: storedUser.email ?? "",
-          profileImage: storedUser.profileImage ?? null,
-        });
-      } catch {
-        navigate("/login");
-      }
-    } else {
-      const token = getAuthToken();
-      if (!token) {
-        navigate("/login");
-      } else {
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1])) as JwtPayload;
-          setUser({
-            id: payload.userId ?? 0,
-            name: payload.name ?? "",
-            email: payload.email ?? "",
-            profileImage: payload.profileImage ?? null,
-          });
-        } catch {
-          navigate("/login");
-        }
-      }
+    if (!ready) {
+      return;
     }
+
+    if (!authUser) {
+      navigate("/login");
+      setLoading(false);
+      return;
+    }
+
+    setUser({
+      id: Number(authUser.id) || 0,
+      name: authUser.name,
+      email: authUser.email,
+      profileImage: authUser.profileImage ?? null,
+    });
     setLoading(false);
-  }, [navigate]);
+  }, [authUser, navigate, ready]);
 
   useEffect(() => {
     const loadRecommendations = async () => {

@@ -10,6 +10,14 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getAuthToken } from "@/lib/auth";
 import api from "@/services/api";
+import Categories from "@/pages/Categories";
+import Submit from "@/pages/Submit";
+import { HomeView, useHomeView } from "@/lib/homeView";
+import AdminUsers from "@/pages/AdminUsers";
+import AdminPendingPosts from "@/pages/AdminPendingPosts";
+import AdminReviewedPosts from "@/pages/AdminReviewedPosts";
+import AdminRequests from "@/pages/AdminRequests";
+import OwnerInbox from "@/pages/OwnerInbox";
 
 type ApprovedToolApiResponse = {
   id: number;
@@ -40,11 +48,22 @@ type ToggleFavoriteResponse = {
   message: string;
 };
 
-export default function Home() {
+type HomeProps = {
+  forcedView?: HomeView;
+};
+
+export default function Home({ forcedView }: HomeProps) {
   const navigate = useNavigate();
+  const { view, setView } = useHomeView();
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const { query, setQuery, filtered } = useSearch(tools);
+
+  useEffect(() => {
+    if (forcedView && forcedView !== view) {
+      setView(forcedView);
+    }
+  }, [forcedView, setView, view]);
 
   useEffect(() => {
     const fetchApprovedTools = async () => {
@@ -173,6 +192,34 @@ export default function Home() {
     }
   };
 
+  if (view === "categorias") {
+    return <Categories />;
+  }
+
+  if (view === "recomendar") {
+    return <Submit />;
+  }
+
+  if (view === "admin-users") {
+    return <AdminUsers />;
+  }
+
+  if (view === "admin-pending-posts") {
+    return <AdminPendingPosts />;
+  }
+
+  if (view === "admin-reviewed-posts") {
+    return <AdminReviewedPosts />;
+  }
+
+  if (view === "admin-requests") {
+    return <AdminRequests />;
+  }
+
+  if (view === "admin-inbox") {
+    return <OwnerInbox />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
       {/* Hero */}
@@ -201,6 +248,7 @@ export default function Home() {
             <Button 
               size="lg" 
               className="w-full sm:w-auto px-6 sm:px-12 py-5 sm:py-8 text-base sm:text-xl rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.03] hover:shadow-xl transition-all duration-300 shadow-lg"
+              onClick={() => setView("categorias")}
             >
               Explorar ferramentas
             </Button>
@@ -208,7 +256,7 @@ export default function Home() {
               size="lg" 
               variant="outline" 
               className="w-full sm:w-auto px-6 sm:px-12 py-5 sm:py-8 text-base sm:text-xl rounded-2xl border-2 border-primary text-primary hover:bg-primary/10 transition-all duration-300"
-              onClick={() => navigate('/submit')}
+              onClick={() => setView("recomendar")}
             >
               Recomendar ferramenta
             </Button>

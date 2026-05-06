@@ -310,7 +310,7 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
       usedAt: null,
     });
 
-    const publicBaseUrl = process.env.APP_PUBLIC_URL?.replace(/\/$/, '') ?? 'http://localhost:5173';
+    const publicBaseUrl = process.env.APP_PUBLIC_URL?.replace(/\/$/, '') ?? 'https://toolora.com.br';
     const resetUrl = `${publicBaseUrl}/reset-password?email=${encodeURIComponent(email)}&code=${encodeURIComponent(resetCode)}`;
 
     try {

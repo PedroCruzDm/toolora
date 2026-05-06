@@ -7,19 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Trash2, AlertTriangle, Upload, X } from "lucide-react";
-import { clearAuthSession, getAuthToken, readStoredAuthUser, updateAuthUser } from "@/lib/auth";
+import { clearAuthSession, updateAuthUser } from "@/lib/auth";
+import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
 
 type UserData = {
   id: number;
   name: string;
   email: string;
-  profileImage?: string | null;
-};
-
-type JwtPayload = {
-  userId?: number;
-  email?: string;
-  name?: string;
   profileImage?: string | null;
 };
 
@@ -40,6 +34,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasProfileImage = Boolean(profileImage.trim());
+  const { user: authUser, ready } = useAuthBootstrap();
 
   const isSupportedImageFile = (file: File) => {
     if (file.type.startsWith("image/")) return true;
@@ -51,47 +46,29 @@ export default function Settings() {
   };
 
   useEffect(() => {
-    const storedUser = readStoredAuthUser();
-    if (storedUser) {
-      try {
-        const userData = {
-          id: storedUser.id ?? 0,
-          name: storedUser.name ?? "",
-          email: storedUser.email ?? "",
-          profileImage: storedUser.profileImage ?? null,
-        };
-        setUser(userData);
-        setName(userData.name ?? "");
-        setEmail(userData.email ?? "");
-        setProfileImage(userData.profileImage ?? "");
-      } catch {
-        navigate("/login");
-      }
-    } else {
-      const token = getAuthToken();
-      if (!token) {
-        navigate("/login");
-      } else {
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1])) as JwtPayload;
-          const fallbackUser: UserData = {
-            id: payload.userId ?? 0,
-            name: payload.name ?? "",
-            email: payload.email ?? "",
-            profileImage: payload.profileImage ?? null,
-          };
-
-          setUser(fallbackUser);
-          setName(fallbackUser.name);
-          setEmail(fallbackUser.email);
-          setProfileImage(fallbackUser.profileImage ?? "");
-        } catch {
-          navigate("/login");
-        }
-      }
+    if (!ready) {
+      return;
     }
+
+    if (!authUser) {
+      navigate("/login");
+      setLoading(false);
+      return;
+    }
+
+    const fallbackUser: UserData = {
+      id: Number(authUser.id) || 0,
+      name: authUser.name,
+      email: authUser.email,
+      profileImage: authUser.profileImage ?? null,
+    };
+
+    setUser(fallbackUser);
+    setName(fallbackUser.name);
+    setEmail(fallbackUser.email);
+    setProfileImage(fallbackUser.profileImage ?? "");
     setLoading(false);
-  }, [navigate]);
+  }, [authUser, navigate, ready]);
 
   const uploadProfileImage = async (file: File) => {
     if (!isSupportedImageFile(file)) {

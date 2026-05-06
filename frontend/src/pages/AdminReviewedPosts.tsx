@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { CheckCircle2, ExternalLink, RefreshCcw, ShieldX, Sparkles } from "lucide-react";
-import { hasModeratorAccess, readAuthSession } from "@/lib/auth";
+import { hasModeratorAccess } from "@/lib/auth";
+import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
 
 type ReviewedPost = {
   id: number;
@@ -26,7 +27,7 @@ type TabType = "approved" | "rejected";
 
 export default function AdminReviewedPosts() {
   const navigate = useNavigate();
-  const session = useMemo(() => readAuthSession(), []);
+  const { user: session, ready } = useAuthBootstrap();
   const [activeTab, setActiveTab] = useState<TabType>("approved");
   const [posts, setPosts] = useState<ReviewedPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,10 @@ export default function AdminReviewedPosts() {
   };
 
   useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
     if (!hasModeratorAccess(session)) {
       toast.error("Acesso restrito a administradores.");
       navigate("/");
@@ -55,7 +60,7 @@ export default function AdminReviewedPosts() {
     }
 
     fetchReviewedPosts();
-  }, [navigate, activeTab, session]);
+  }, [navigate, activeTab, session, ready]);
 
   const getStatusBadgeColor = (status: string) => {
     return status === "approved"

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type ClipboardEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type ClipboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { CheckCircle2, Clock3, ExternalLink, RefreshCcw, ShieldX, Sparkles } from "lucide-react";
-import { hasModeratorAccess, readAuthSession } from "@/lib/auth";
+import { hasModeratorAccess } from "@/lib/auth";
+import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
 
 type PendingPost = {
   id: number;
@@ -20,7 +21,7 @@ type PendingPost = {
 
 export default function AdminPendingPosts() {
   const navigate = useNavigate();
-  const session = useMemo(() => readAuthSession(), []);
+  const { user: session, ready } = useAuthBootstrap();
   const [posts, setPosts] = useState<PendingPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
@@ -47,6 +48,10 @@ export default function AdminPendingPosts() {
   };
 
   useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
     if (!hasModeratorAccess(session)) {
       toast.error("Acesso restrito a administradores.");
       navigate("/");
@@ -54,7 +59,7 @@ export default function AdminPendingPosts() {
     }
 
     fetchPendingPosts();
-  }, [navigate, session]);
+  }, [navigate, session, ready]);
 
   const handleDecision = async (postId: number, action: "approve" | "reject") => {
     setProcessingId(postId);
