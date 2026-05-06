@@ -3,7 +3,7 @@ import AdSidebar from "@/components/AdSidebar";
 import { Tool } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, X, Sparkles, Layers3, ShieldCheck } from "lucide-react";
 import { useSearch } from "@/hooks/useSearch";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -57,6 +57,7 @@ export default function Home({ forcedView }: HomeProps) {
   const { view, setView } = useHomeView();
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isIntroOpen, setIsIntroOpen] = useState(false);
   const { query, setQuery, filtered } = useSearch(tools);
 
   useEffect(() => {
@@ -64,6 +65,26 @@ export default function Home({ forcedView }: HomeProps) {
       setView(forcedView);
     }
   }, [forcedView, setView, view]);
+
+  useEffect(() => {
+    if (!isIntroOpen) return;
+
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsIntroOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isIntroOpen]);
+
+  useEffect(() => {
+    const openIntroModal = () => setIsIntroOpen(true);
+    window.addEventListener("toolora-open-project-modal", openIntroModal);
+
+    return () => window.removeEventListener("toolora-open-project-modal", openIntroModal);
+  }, []);
 
   useEffect(() => {
     const fetchApprovedTools = async () => {
@@ -263,6 +284,80 @@ export default function Home({ forcedView }: HomeProps) {
           </div>
         </div>
       </section>
+
+      {isIntroOpen && (
+        <div
+          className="fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm px-4 py-8"
+          onClick={() => setIsIntroOpen(false)}
+        >
+          <div
+            className="mx-auto mt-10 w-full max-w-3xl rounded-3xl border border-border bg-card p-6 shadow-2xl sm:mt-16 sm:p-8"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-indigo-300">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Sobre a plataforma
+                </p>
+                <h2 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">Bem-vindo ao Toolora</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
+                  O Toolora e um hub para descobrir, avaliar e recomendar ferramentas digitais. Tudo foi pensado para
+                  voce encontrar a ferramenta certa em segundos.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsIntroOpen(false)}
+                className="rounded-xl border border-border bg-background p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                aria-label="Fechar modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <article className="rounded-2xl border border-border bg-background/60 p-4">
+                <div className="mb-3 inline-flex rounded-lg border border-sky-500/30 bg-sky-500/10 p-2 text-sky-300">
+                  <Layers3 className="h-4 w-4" />
+                </div>
+                <h3 className="mb-1 text-sm font-bold text-foreground sm:text-base">1. Explore</h3>
+                <p className="text-xs leading-5 text-muted-foreground sm:text-sm">
+                  Busque por categoria, nome ou tags. Os cards mostram resumo, link e status das ferramentas.
+                </p>
+              </article>
+
+              <article className="rounded-2xl border border-border bg-background/60 p-4">
+                <div className="mb-3 inline-flex rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-2 text-indigo-300">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <h3 className="mb-1 text-sm font-bold text-foreground sm:text-base">2. Interaja</h3>
+                <p className="text-xs leading-5 text-muted-foreground sm:text-sm">
+                  Curta e favorite para montar seu repertorio pessoal e destacar as ferramentas mais uteis da comunidade.
+                </p>
+              </article>
+
+              <article className="rounded-2xl border border-border bg-background/60 p-4">
+                <div className="mb-3 inline-flex rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-emerald-300">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <h3 className="mb-1 text-sm font-bold text-foreground sm:text-base">3. Recomende</h3>
+                <p className="text-xs leading-5 text-muted-foreground sm:text-sm">
+                  Envie novas ferramentas para revisao. A moderacao valida e publica para manter qualidade e seguranca.
+                </p>
+              </article>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-border bg-background/60 p-4 sm:p-5">
+              <h4 className="mb-2 text-sm font-bold text-foreground sm:text-base">Como usar melhor</h4>
+              <p className="text-xs leading-6 text-muted-foreground sm:text-sm">
+                Comece em "Explorar ferramentas" para descobrir opcoes, salve suas favoritas e depois use "Recomendar ferramenta"
+                para contribuir com a comunidade.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lista de ferramentas */}
       <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 py-16 sm:py-24 bg-background">

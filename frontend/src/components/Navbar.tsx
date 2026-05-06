@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Moon, Sun, UserCircle2, ChevronDown, Settings, LogOut } from "lucide-react";
+import { Moon, Sun, UserCircle2, ChevronDown, Settings, LogOut, CircleHelp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthSession, clearAuthSession, getAuthToken, hasAdminAccess, hasModeratorAccess, readAuthSession, updateAuthUser } from "@/lib/auth";
 import { useLocation } from "react-router-dom";
@@ -303,6 +303,16 @@ export default function Navbar() {
         ) : (
           <Moon className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
         )}
+          </button>
+
+          <button
+            type="button"
+            className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 flex items-center justify-center"
+            aria-label="Sobre o projeto"
+            title="Sobre o projeto"
+            onClick={() => window.dispatchEvent(new Event("toolora-open-project-modal"))}
+          >
+            <CircleHelp className="h-5 w-5" />
           </button>
         </div>
       </div>
