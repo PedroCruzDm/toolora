@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { register, login, updateUser, deleteUser, listUsers, currentSession, requestPasswordReset, confirmPasswordReset } from '../controller/authMongoController';
 import { authMiddleware } from '../middlewares/authMiddleware';
-import { adminMiddleware } from '../middlewares/adminMiddleware';
+import { adminMiddleware } from '../middlewares/roleMiddleware';
 
 const router = Router();
 

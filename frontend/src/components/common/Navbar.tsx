@@ -92,7 +92,8 @@ export default function Navbar() {
     clearAuthSession();
     setAuthUser(null);
     setIsMenuOpen(false);
-    navigate("/login");
+    setView("login");
+    if (location.pathname !== "/") navigate("/");
   };
 
   const handleMainViewChange = (next: HomeView) => {
@@ -106,7 +107,7 @@ export default function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-white dark:bg-gray-900 shadow-sm transition-colors">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-12 py-3 sm:py-4 flex items-center justify-between gap-3">
         <Link to="/" className="flex items-center gap-3" onClick={() => setView("inicio")}>
-          <img src="/logo.png" alt="Toolora" className="h-8 sm:h-10" />
+          <img src="/logo_v1.png" alt="Toolora" className="h-10 sm:h-24" />
           <span className="font-extrabold text-xl sm:text-3xl tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
             Toolora
           </span>
@@ -274,13 +275,16 @@ export default function Navbar() {
               )}
             </div>
           ) : (
-            <Link
-              to="/login"
+            <button
+              onClick={() => {
+                setView("login");
+                if (location.pathname !== "/") navigate("/");
+              }}
               className="flex items-center gap-2 rounded-full border border-gray-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:border-indigo-200 hover:text-indigo-600 dark:border-gray-700 dark:text-gray-200 dark:hover:border-indigo-500 dark:hover:text-indigo-300 transition-colors"
             >
               <UserCircle2 className="h-4 w-4" />
               <span className="hidden sm:inline">Entrar</span>
-            </Link>
+            </button>
           )}
 
           <button

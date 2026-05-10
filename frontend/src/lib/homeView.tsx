@@ -4,6 +4,8 @@ export type HomeView =
   | "inicio"
   | "categorias"
   | "recomendar"
+  | "login"
+  | "cadastro"
   | "admin-users"
   | "admin-pending-posts"
   | "admin-reviewed-posts"
@@ -26,6 +28,8 @@ const getInitialView = (): HomeView => {
     saved === "categorias" ||
     saved === "recomendar" ||
     saved === "inicio" ||
+    saved === "login" ||
+    saved === "cadastro" ||
     saved === "admin-users" ||
     saved === "admin-pending-posts" ||
     saved === "admin-reviewed-posts" ||

@@ -1,5 +1,5 @@
 import { ToolCard } from "@/components/ui/card";
-import AdSidebar from "@/components/AdSidebar";
+import AdSidebar from "@/components/common/AdSidebar";
 import { Tool } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import { getAuthToken } from "@/lib/auth";
 import api from "@/services/api";
 import Categories from "@/pages/Categories";
 import Submit from "@/pages/Submit";
+import Cadastro from "@/pages/cadastro";
+import Login from "@/pages/login";
 import { HomeView, useHomeView } from "@/lib/homeView";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminPendingPosts from "@/pages/AdminPendingPosts";
@@ -219,6 +221,14 @@ export default function Home({ forcedView }: HomeProps) {
 
   if (view === "recomendar") {
     return <Submit />;
+  }
+
+  if (view === "cadastro") {
+    return <Cadastro />;
+  }
+
+  if (view === "login") {
+    return <Login />;
   }
 
   if (view === "admin-users") {

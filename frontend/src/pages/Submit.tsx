@@ -1,5 +1,5 @@
 // src/pages/Submit.tsx
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import axios from "axios";
@@ -63,7 +63,6 @@ export default function Submit() {
     register,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors, isSubmitting },
     reset,
   } = useForm<FormData>({
@@ -78,7 +77,7 @@ export default function Submit() {
     },
   });
 
-  const screenshotValue = watch("screenshot");
+  const screenshotValue = useWatch({ control, name: "screenshot" });
   const hasScreenshot = Boolean(screenshotValue?.trim());
 
   const uploadImageFile = async (file: File) => {

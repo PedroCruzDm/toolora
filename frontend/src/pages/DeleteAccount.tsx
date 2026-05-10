@@ -42,7 +42,7 @@ export default function DeleteAccount() {
       email: authUser.email,
     });
     setLoading(false);
-  }, [navigate]);
+  }, [authUser, navigate, ready]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

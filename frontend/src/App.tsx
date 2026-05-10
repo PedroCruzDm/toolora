@@ -1,10 +1,9 @@
 import { BrowserRouter as Router, Outlet, Routes, Route, useLocation } from "react-router-dom";
-import Navbar from "@/components/Navbar";
+import Navbar from "@/components/common/Navbar";
 import SimpleHeader from "@/components/SimpleHeader";
-import { HomeViewProvider } from "@/lib/homeView";
+import { HomeViewProvider, useHomeView } from "@/lib/homeView";
 import Home from "@/pages/Home";
-import Cadastro from "@/pages/cadastro";
-import Login from "@/pages/login";
+import RedirectToRootWithView from "@/pages/RedirectToRootWithView";
 import ForgotPassword from "@/pages/ForgotPassword";
 import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
@@ -13,12 +12,13 @@ import { Toaster } from "sonner";
 
 function RootLayout() {
   const location = useLocation();
+  const { view } = useHomeView();
   const authPaths = new Set(["/login", "/cadastro", "/forgot-password", "/reset-password"]);
-  const isAuthPage = authPaths.has(location.pathname);
+  const isAuthView = view === "login" || view === "cadastro" || authPaths.has(location.pathname);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {isAuthPage ? <SimpleHeader /> : <Navbar />}
+      {isAuthView ? <SimpleHeader /> : <Navbar />}
       <main className="flex-1">
         <Outlet />
       </main>
@@ -35,8 +35,8 @@ function App() {
             <Route index element={<Home />} />
             <Route path="categorias" element={<Home forcedView="categorias" />} />
             <Route path="submit" element={<Home forcedView="recomendar" />} />
-            <Route path="cadastro" element={<Cadastro />} />
-            <Route path="login" element={<Login />} />
+            <Route path="cadastro" element={<RedirectToRootWithView view="cadastro" />} />
+            <Route path="login" element={<RedirectToRootWithView view="login" />} />
             <Route path="forgot-password" element={<ForgotPassword />} />
             <Route path="reset-password" element={<ForgotPassword />} />
             <Route path="profile" element={<Profile />} />

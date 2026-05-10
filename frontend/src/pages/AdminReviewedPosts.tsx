@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
@@ -33,7 +33,7 @@ export default function AdminReviewedPosts() {
   const [loading, setLoading] = useState(true);
   const [blockingPostId, setBlockingPostId] = useState<number | null>(null);
 
-  const fetchReviewedPosts = async () => {
+  const fetchReviewedPosts = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.get<ReviewedPost[]>(`/tools/reviewed?status=${activeTab}`);
@@ -46,7 +46,7 @@ export default function AdminReviewedPosts() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   useEffect(() => {
     if (!ready) {
@@ -60,7 +60,7 @@ export default function AdminReviewedPosts() {
     }
 
     fetchReviewedPosts();
-  }, [navigate, activeTab, session, ready]);
+  }, [navigate, session, ready, fetchReviewedPosts]);
 
   const getStatusBadgeColor = (status: string) => {
     return status === "approved"

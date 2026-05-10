@@ -9,6 +9,6 @@ export type Tool = {
   likesCount: number;
   isLiked: boolean;
   isFavorited: boolean;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'blocked';
   approved_at: string | null;
 };

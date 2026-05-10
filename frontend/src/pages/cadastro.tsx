@@ -5,6 +5,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { saveAuthSession } from "@/lib/auth";
+import { passwordStrength, isCommonPassword, isStrongEnough } from "@/lib/passwordUtils";
 
 type RegisterResponse = {
 	token: string;
@@ -21,6 +22,9 @@ export default function Cadastro() {
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [confirmNotReuse, setConfirmNotReuse] = useState(false);
+
+	const strength = password ? passwordStrength(password) : null;
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -28,6 +32,22 @@ export default function Cadastro() {
 
 		if (!name.trim() || !email.trim() || !password.trim()) {
 			toast.error("Preencha nome, email e senha para continuar.");
+			return;
+		}
+
+		// Client-side password validations
+		if (isCommonPassword(password)) {
+			toast.error("Senha muito comum. Escolha uma senha única e forte.");
+			return;
+		}
+
+		if (!isStrongEnough(password)) {
+			toast.error("Sua senha é fraca. Use pelo menos 8 caracteres, com letras maiúsculas, minúsculas e números.");
+			return;
+		}
+
+		if (!confirmNotReuse) {
+			toast.error("Confirme que não usará uma senha que sempre utiliza em outros sites.");
 			return;
 		}
 
@@ -110,6 +130,45 @@ export default function Cadastro() {
 							placeholder="Crie uma senha"
 							autoComplete="new-password"
 						/>
+
+						<div className="mt-2 text-sm text-muted-foreground">
+							<strong>A senha deve conter:</strong>
+							<ul className="mt-2 ml-4 list-disc">
+								<li className={strength?.criteria.length ? 'text-emerald-500' : 'text-muted-foreground'}>Pelo menos 8 caracteres</li>
+								<li className={strength?.criteria.upper && strength?.criteria.lower ? 'text-emerald-500' : 'text-muted-foreground'}>Letras maiúsculas e minúsculas</li>
+								<li className={strength?.criteria.number ? 'text-emerald-500' : 'text-muted-foreground'}>Ao menos um número</li>
+								<li className={strength?.criteria.symbol ? 'text-emerald-500' : 'text-muted-foreground'}>Preferencialmente um símbolo (ex: !@#$%)</li>
+							</ul>
+						</div>
+
+						{/* Strength meter */}
+						{password && (
+							<div className="mt-3">
+								{(() => {
+									const s = passwordStrength(password);
+									const pct = Math.round((s.score / s.max) * 100);
+									const color = s.score <= 2 ? 'bg-red-500' : s.score === 3 ? 'bg-amber-500' : 'bg-emerald-500';
+									return (
+										<>
+											<div className="w-full bg-border rounded-full h-2 overflow-hidden">
+												<div className={`${color} h-2`} style={{ width: `${pct}%` }} />
+											</div>
+											<div className="mt-2 text-xs text-muted-foreground">Força: {pct}%</div>
+										</>
+									);
+								})()}
+							</div>
+						)}
+
+						{password && isCommonPassword(password) && (
+							<div className="mt-3 text-sm text-red-500">Essa senha é muito comum — escolha outra.</div>
+						)}
+
+						<div className="mt-3 flex items-center gap-2">
+							<input id="confirmReuse" type="checkbox" checked={confirmNotReuse} onChange={e => setConfirmNotReuse(e.target.checked)} className="h-4 w-4" />
+							<label htmlFor="confirmReuse" className="text-sm text-muted-foreground">Eu confirmo que não vou usar a senha que costumo usar em outros sites</label>
+						</div>
+
 					</div>
 					<button
 						type="submit"

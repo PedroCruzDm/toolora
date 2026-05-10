@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middlewares/authMiddleware';
-import { adminMiddleware } from '../middlewares/adminMiddleware';
+import { adminMiddleware } from '../middlewares/roleMiddleware';
 import { moderatorMiddleware } from '../middlewares/roleMiddleware';
 import {
   createTool,

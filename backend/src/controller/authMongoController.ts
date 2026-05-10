@@ -25,6 +25,21 @@ const generateResetCode = () => randomBytes(3).toString('hex').toUpperCase();
 
 const hashResetCode = (code: string) => createHash('sha256').update(code).digest('hex');
 
+const commonPasswords = new Set([
+  '123456', 'password', '12345678', 'qwerty', '123456789', '12345', '1234', '111111', '1234567', 'dragon',
+  'baseball', 'abc123', 'football', 'monkey', 'letmein', 'shadow', 'master', '666666', 'qwertyuiop', '123321'
+]);
+
+const getPasswordScore = (password: string) => {
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (/[a-z]/.test(password)) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/[0-9]/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+  return score;
+};
+
 export const register = async (req: Request, res: Response) => {
   const { name, email, password, profileImage } = req.body;
 
@@ -37,6 +52,20 @@ export const register = async (req: Request, res: Response) => {
   }
 
   try {
+    // server-side password strength checks
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: 'A senha deve ter pelo menos 8 caracteres.' });
+    }
+
+    // disallow very common passwords (small local list)
+    if (commonPasswords.has(password)) {
+      return res.status(400).json({ error: 'Senha muito comum. Escolha uma senha mais forte.' });
+    }
+
+    if (getPasswordScore(password) < 3) {
+      return res.status(400).json({ error: 'Senha fraca. Use uma senha mais forte (maiúscula, minúscula e número).' });
+    }
+
     const db = await getMongoDb();
     const users = db.collection('users');
 
@@ -157,6 +186,22 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     if (newPassword) {
+      // disallow reusing the same password
+      const isSame = await bcrypt.compare(newPassword, user.password);
+      if (isSame) return res.status(400).json({ error: 'A nova senha não pode ser igual à senha atual.' });
+
+      if (typeof newPassword !== 'string' || newPassword.length < 8) {
+        return res.status(400).json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' });
+      }
+
+      if (commonPasswords.has(newPassword)) {
+        return res.status(400).json({ error: 'Senha muito comum. Escolha uma senha mais forte.' });
+      }
+
+      if (getPasswordScore(newPassword) < 3) {
+        return res.status(400).json({ error: 'Senha fraca. Use uma senha mais forte (maiúscula, minúscula e número).' });
+      }
+
       updates.password = await bcrypt.hash(newPassword, 10);
     }
 
@@ -369,6 +414,22 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     const user = await users.findOne({ _id: new ObjectId(token.userId) });
     if (!user || user.email !== email) {
       return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    // do not allow reusing the previous password
+    const isSame = await bcrypt.compare(newPassword, user.password);
+    if (isSame) return res.status(400).json({ error: 'A nova senha não pode ser igual à senha anterior.' });
+
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' });
+    }
+
+    if (commonPasswords.has(newPassword)) {
+      return res.status(400).json({ error: 'Senha muito comum. Escolha uma senha mais forte.' });
+    }
+
+    if (getPasswordScore(newPassword) < 3) {
+      return res.status(400).json({ error: 'Senha fraca. Use uma senha mais forte (maiúscula, minúscula e número).' });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);

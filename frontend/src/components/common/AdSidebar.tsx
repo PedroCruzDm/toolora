@@ -38,7 +38,7 @@ export default function AdSidebar() {
         if ((window as any).adsbygoogle) {
           (window as any).adsbygoogle.push({});
         }
-      } catch (e) {
+      } catch {
         // ignore push errors
       }
     };
@@ -63,7 +63,7 @@ export default function AdSidebar() {
       pushAds();
       pushAds();
     };
-    s.onerror = (e) => console.warn('AdSense script failed to load', e);
+    s.onerror = () => console.warn('AdSense script failed to load');
     document.head.appendChild(s);
   }, []);
 

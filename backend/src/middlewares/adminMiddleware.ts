@@ -1,1 +1,0 @@
-export { adminMiddleware } from './roleMiddleware';
