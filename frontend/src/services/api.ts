@@ -55,7 +55,13 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401) {
       clearAuthSession();
-      window.location.href = '/login';
+      // Navigate SPA to the login view (app no longer exposes /login route)
+      try {
+        window.sessionStorage.setItem('toolora-home-view', 'login');
+      } catch {
+        // ignore sessionStorage failures
+      }
+      window.location.replace('/');
     }
     
     return Promise.reject(error);
