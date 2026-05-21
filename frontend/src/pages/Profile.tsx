@@ -160,9 +160,9 @@ export default function Profile() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background pt-24 pb-12 px-6">
+      <div className="min-h-screen bg-background pt-24 pb-12 px-4 sm:px-6">
         <div className="max-w-2xl mx-auto">
-          <Card className="p-8 text-center">
+          <Card className="p-5 sm:p-8 text-center">
             <h2 className="text-2xl font-bold text-foreground mb-2">Sessão inválida</h2>
             <p className="text-muted-foreground mb-6">Faça login novamente para acessar seu perfil.</p>
             <Button onClick={() => navigate("/login")} className="bg-indigo-600 hover:bg-indigo-700">
@@ -175,14 +175,14 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-12 px-6">
+    <div className="min-h-screen bg-background pt-24 pb-12 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground">Meu Perfil</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground">Meu Perfil</h1>
           <p className="text-muted-foreground mt-2">Visualize seus dados de conta</p>
         </div>
 
-        <Card className="p-8 space-y-6">
+        <Card className="p-5 sm:p-8 space-y-6">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center overflow-hidden border border-white/10">
               {user.profileImage ? (
@@ -227,7 +227,7 @@ export default function Profile() {
             )}
           </div>
 
-          <div className="border-t border-border pt-6 flex gap-4">
+          <div className="border-t border-border pt-6 flex flex-col sm:flex-row gap-3 sm:gap-4">
             <Button
               onClick={() => navigate("/settings")}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700"
@@ -245,7 +245,7 @@ export default function Profile() {
           </div>
         </Card>
 
-        <Card className="p-8 mt-8 space-y-6">
+        <Card className="p-5 sm:p-8 mt-8 space-y-6">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Minhas Recomendações</h2>
             <p className="text-muted-foreground mt-2">Acompanhe o status das ferramentas que você enviou.</p>
@@ -294,7 +294,7 @@ export default function Profile() {
           )}
         </Card>
 
-        <Card className="p-8 mt-8 space-y-6">
+        <Card className="p-5 sm:p-8 mt-8 space-y-6">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Avisos</h2>
             <p className="text-muted-foreground mt-2">Mensagens enviadas pela moderação.</p>

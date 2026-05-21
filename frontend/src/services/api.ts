@@ -35,6 +35,8 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const config = error.config;
+    const requestUrl = typeof config?.url === 'string' ? config.url : '';
+    const isLoginRequest = requestUrl.includes('/auth/login');
     
     if (!config.retryCount) { // repete configuração
       config.retryCount = 0;
@@ -53,7 +55,7 @@ api.interceptors.response.use(
       return api(config);
     }
 
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isLoginRequest) {
       clearAuthSession();
       // Navigate SPA to the login view (app no longer exposes /login route)
       try {

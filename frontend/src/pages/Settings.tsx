@@ -207,9 +207,9 @@ export default function Settings() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background pt-24 pb-12 px-6">
+      <div className="min-h-screen bg-background pt-24 pb-12 px-4 sm:px-6">
         <div className="max-w-2xl mx-auto">
-          <Card className="p-8 text-center">
+          <Card className="p-5 sm:p-8 text-center">
             <h2 className="text-2xl font-bold text-foreground mb-2">Sessão inválida</h2>
             <p className="text-muted-foreground mb-6">Faça login novamente para editar sua conta.</p>
             <Button onClick={() => navigate("/login")} className="bg-indigo-600 hover:bg-indigo-700">
@@ -222,7 +222,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-12 px-6">
+    <div className="min-h-screen bg-background pt-24 pb-12 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate("/profile")}
@@ -233,11 +233,11 @@ export default function Settings() {
         </button>
 
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground">Editar Conta</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground">Editar Conta</h1>
           <p className="text-muted-foreground mt-2">Atualize seus dados de perfil</p>
         </div>
 
-        <Card className="p-8">
+        <Card className="p-5 sm:p-8">
           <form onSubmit={onSubmit} className="space-y-6">
             <div
               className="rounded-2xl border border-border bg-card/70 p-4 space-y-4"
@@ -315,7 +315,7 @@ export default function Settings() {
                       value={profileImage}
                       onChange={(e) => setProfileImage(e.target.value)}
                       placeholder="Ou cole um link de imagem"
-                      className="min-w-[240px] flex-1"
+                      className="w-full sm:min-w-[240px] sm:flex-1"
                     />
                   )}
                 </div>
@@ -404,7 +404,7 @@ export default function Settings() {
               </div>
             </div>
 
-            <div className="border-t border-border pt-6 flex gap-4">
+            <div className="border-t border-border pt-6 flex flex-col sm:flex-row gap-3 sm:gap-4">
               <Button
                 type="submit"
                 disabled={isSubmitting}
@@ -424,7 +424,7 @@ export default function Settings() {
           </form>
         </Card>
 
-        <Card className="p-8 mt-8 border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
+        <Card className="p-5 sm:p-8 mt-8 border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
           <div className="flex items-start gap-3 mb-6">
             <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
             <div>

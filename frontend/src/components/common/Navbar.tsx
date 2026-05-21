@@ -105,15 +105,15 @@ export default function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-white dark:bg-gray-900 shadow-sm transition-colors">
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-12 py-3 sm:py-4 flex items-center justify-between gap-3">
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 lg:px-12 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-3">
         <Link to="/" className="flex items-center gap-3" onClick={() => setView("inicio")}>
-          <img src="/logo_v1.png" alt="Toolora" className="h-10 sm:h-24" />
-          <span className="font-extrabold text-xl sm:text-3xl tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
+          <img src="/logo_v1.png" alt="Toolora" className="h-8 sm:h-10 lg:h-12 w-auto" />
+          <span className="font-extrabold text-lg sm:text-2xl lg:text-3xl tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
             Toolora
           </span>
         </Link>
 
-        <div className="flex items-center gap-2 sm:gap-3 lg:gap-6 text-sm sm:text-base font-medium">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-3 lg:gap-6 text-sm sm:text-base font-medium">
           <button
             type="button"
             onClick={() => handleMainViewChange("inicio")}
@@ -311,7 +311,7 @@ export default function Navbar() {
 
           <button
             type="button"
-            className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 flex items-center justify-center"
+            className="hidden sm:flex h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 items-center justify-center"
             aria-label="Sobre o projeto"
             title="Sobre o projeto"
             onClick={() => window.dispatchEvent(new Event("toolora-open-project-modal"))}

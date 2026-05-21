@@ -90,7 +90,7 @@ export default function DeleteAccount() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-12 px-6">
+    <div className="min-h-screen bg-background pt-24 pb-12 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate("/profile")}
@@ -101,11 +101,11 @@ export default function DeleteAccount() {
         </button>
 
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-red-600">Deletar Conta</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-red-600">Deletar Conta</h1>
           <p className="text-muted-foreground mt-2">Esta ação é permanente e irreversível</p>
         </div>
 
-        <Card className="p-8 border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
+        <Card className="p-5 sm:p-8 border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
           <div className="flex items-start gap-4 mb-6">
             <AlertCircle className="w-8 h-8 text-red-600 flex-shrink-0 mt-0.5" />
             <div>
@@ -157,7 +157,7 @@ export default function DeleteAccount() {
               />
             </div>
 
-            <div className="border-t border-border pt-6 flex gap-4">
+            <div className="border-t border-border pt-6 flex flex-col sm:flex-row gap-3 sm:gap-4">
               <Button
                 type="submit"
                 disabled={isSubmitting || confirmation !== "DELETAR CONTA"}

@@ -17,7 +17,7 @@ function RootLayout() {
   const isAuthView = view === "login" || view === "cadastro" || authPaths.has(location.pathname);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-clip">
       {isAuthView ? <SimpleHeader /> : <Navbar />}
       <main className="flex-1">
         <Outlet />
