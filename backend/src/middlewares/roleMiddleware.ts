@@ -1,29 +1,38 @@
 import { Request, Response, NextFunction } from 'express';
 
 type JwtRolePayload = {
-  userId?: number;
+  userId?: string;
   email?: string;
+  role?: 'owner' | 'admin' | 'moderator' | 'user';
   isOwner?: boolean;
   isAdmin?: boolean;
   isModerator?: boolean;
 };
 
-const hasRole = (user: JwtRolePayload | undefined, roles: Array<'owner' | 'admin' | 'moderator'>) => {
+const rolePriority: Record<'owner' | 'admin' | 'moderator' | 'user', number> = {
+  owner: 4,
+  admin: 3,
+  moderator: 2,
+  user: 1,
+};
+
+const resolveRole = (user: JwtRolePayload): 'owner' | 'admin' | 'moderator' | 'user' => {
+  if (user.role) return user.role;
+  if (user.isOwner) return 'owner';
+  if (user.isAdmin) return 'admin';
+  if (user.isModerator) return 'moderator';
+  return 'user';
+};
+
+const hasRole = (user: JwtRolePayload | undefined, minimumRole: 'owner' | 'admin' | 'moderator' | 'user') => {
   if (!user) return false;
 
-  const isOwner = Boolean(user.isOwner);
-  const isAdmin = Boolean(user.isAdmin);
-  const isModerator = Boolean(user.isModerator);
-
-  if (roles.includes('owner') && isOwner) return true;
-  if (roles.includes('admin') && (isOwner || isAdmin)) return true;
-  if (roles.includes('moderator') && (isOwner || isAdmin || isModerator)) return true;
-
-  return false;
+  const userRole = resolveRole(user);
+  return rolePriority[userRole] >= rolePriority[minimumRole];
 };
 
 export const ownerMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  if (hasRole((req as any).user, ['owner'])) {
+  if (hasRole((req as any).user, 'owner')) {
     return next();
   }
 
@@ -31,7 +40,7 @@ export const ownerMiddleware = (req: Request, res: Response, next: NextFunction)
 };
 
 export const adminMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  if (hasRole((req as any).user, ['owner', 'admin'])) {
+  if (hasRole((req as any).user, 'admin')) {
     return next();
   }
 
@@ -39,7 +48,7 @@ export const adminMiddleware = (req: Request, res: Response, next: NextFunction)
 };
 
 export const moderatorMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  if (hasRole((req as any).user, ['owner', 'admin', 'moderator'])) {
+  if (hasRole((req as any).user, 'moderator')) {
     return next();
   }
 

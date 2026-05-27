@@ -13,8 +13,13 @@ interface StoredRequest {
 const store = new Map<string, StoredRequest>();
 
 const getKey = (req: Request, keyPrefix: string): string => {
+  const forwardedFor = req.headers['x-forwarded-for'];
+  const ipFromForward = typeof forwardedFor === 'string'
+    ? forwardedFor.split(',')[0]?.trim()
+    : '';
+  const ip = ipFromForward || req.ip || 'unknown-ip';
   const userId = (req as any).user?.userId || 'anonymous';
-  return `${keyPrefix}:${userId}`;
+  return `${keyPrefix}:${ip}:${userId}`;
 };
 
 const cleanOldTimestamps = (timestamps: number[], now: number, windowMs: number): number[] => {
@@ -51,6 +56,9 @@ export const createRateLimiter = (config: RateLimitConfig) => {
 
 // Preset configurations
 export const rateLimits = {
+  // Authentication: 8 requests per 10 minutes (per IP/user)
+  auth: createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 8 }),
+
   // Sensitive operations: 5 requests per 15 minutes
   sensitive: createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5 }),
 

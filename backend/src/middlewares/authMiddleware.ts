@@ -1,22 +1,32 @@
 import { Request, Response, NextFunction } from 'express';
 import { ObjectId } from 'mongodb';
-import jwt from 'jsonwebtoken';
 import { getMongoDb } from '../config/mongo';
+import { verifyAccessToken } from '../services/jwt.service';
 
-const SECRET: string = process.env.JWT_SECRET ?? '';
+const ACCESS_COOKIE_NAME = 'access_token';
 
-if (!SECRET) {
-  throw new Error('JWT_SECRET não configurado. Defina JWT_SECRET no ambiente.');
-}
+const extractAccessToken = (req: Request) => {
+  const cookieToken = (req as any).cookies?.[ACCESS_COOKIE_NAME];
+  if (typeof cookieToken === 'string' && cookieToken.length > 0) {
+    return cookieToken;
+  }
+
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1];
+  }
+
+  return null;
+};
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = extractAccessToken(req);
+  if (!token) {
     return res.status(401).json({ error: 'Token não fornecido.' });
   }
-  const token = authHeader.split(' ')[1];
+
   try {
-    const decoded = jwt.verify(token, SECRET) as any;
+    const decoded = verifyAccessToken(token);
 
     getMongoDb().then(async (db) => {
       const users = db.collection('users');
@@ -30,12 +40,27 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
         return res.status(403).json({ error: 'Conta bloqueada.' });
       }
 
+      const dbTokenVersion = Number(user.token_version ?? 0);
+      if (dbTokenVersion !== Number(decoded.tokenVersion ?? 0)) {
+        return res.status(401).json({ error: 'Sessão expirada. Faça login novamente.' });
+      }
+
+      const role = user.is_owner
+        ? 'owner'
+        : user.is_admin
+          ? 'admin'
+          : user.is_moderator
+            ? 'moderator'
+            : 'user';
+
       (req as any).user = {
         ...decoded,
+        userId: user._id.toString(),
         email: user.email,
-        isOwner: Boolean(decoded.isOwner ?? user.is_owner),
-        isAdmin: Boolean(decoded.isAdmin ?? user.is_admin),
-        isModerator: Boolean(decoded.isModerator ?? user.is_moderator),
+        role,
+        isOwner: Boolean(user.is_owner),
+        isAdmin: Boolean(user.is_admin || user.is_owner),
+        isModerator: Boolean(user.is_moderator),
         isBanned: Boolean(user.is_banned),
       };
 

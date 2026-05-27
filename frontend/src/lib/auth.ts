@@ -29,6 +29,7 @@ export type AuthSession = {
 const AUTH_TOKEN_KEY = "token";
 const AUTH_USER_KEY = "user";
 const AUTH_CHANGE_EVENT = "toolora-auth-change";
+const COOKIE_SESSION_MARKER = "cookie-session";
 
 const decodeJwtPayload = (token: string): JwtPayload | null => {
   try {
@@ -94,7 +95,13 @@ const dispatchAuthChange = () => {
   window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
 };
 
-export const getAuthToken = () => readStoredValue(AUTH_TOKEN_KEY);
+export const getAuthToken = () => {
+  const token = readStoredValue(AUTH_TOKEN_KEY);
+  if (token) return token;
+
+  const user = readStoredAuthUser();
+  return user ? COOKIE_SESSION_MARKER : null;
+};
 
 export const readStoredAuthUser = (): StoredAuthUser | null => {
   const storedUser = readStoredValue(AUTH_USER_KEY);
@@ -107,8 +114,13 @@ export const readStoredAuthUser = (): StoredAuthUser | null => {
   }
 };
 
-export const saveAuthSession = (token: string, user: StoredAuthUser) => {
-  writeStoredValue(AUTH_TOKEN_KEY, token);
+export const saveAuthSession = (token: string | null | undefined, user: StoredAuthUser) => {
+  if (token && token.trim()) {
+    writeStoredValue(AUTH_TOKEN_KEY, token);
+  } else {
+    removeStoredValue(AUTH_TOKEN_KEY);
+  }
+
   writeStoredValue(AUTH_USER_KEY, JSON.stringify(user));
   dispatchAuthChange();
 };

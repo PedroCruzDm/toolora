@@ -1,15 +1,67 @@
-import { Request, Response } from 'express';
+import { randomUUID, randomBytes, createHash } from 'crypto';
+import { Request, Response, CookieOptions } from 'express';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
-import { randomBytes, createHash } from 'crypto';
-import { generateToken } from '../services/jwt.service';
+import { z } from 'zod';
 import { getMongoDb } from '../config/mongo';
 import { sendPasswordResetEmail } from '../services/mailer.service';
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+  JwtFlags,
+} from '../services/jwt.service';
+import {
+  ensureRefreshTokenBlacklistIndexes,
+  blacklistRefreshToken,
+  isRefreshTokenBlacklisted,
+} from '../services/auth.service';
+
+const ACCESS_COOKIE_NAME = 'access_token';
+const REFRESH_COOKIE_NAME = 'refresh_token';
+const ACCESS_COOKIE_MAX_AGE = 15 * 60 * 1000;
+const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const TOKEN_TTL_MINUTES = 15;
+
+const registerSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email(),
+  password: z.string().min(8).max(128),
+  profileImage: z.string().trim().max(5_000_000).optional().nullable(),
+});
+
+const loginSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(1),
+});
+
+const updateUserSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email(),
+  currentPassword: z.string().min(1).optional(),
+  newPassword: z.string().min(8).max(128).optional(),
+  profileImage: z.string().trim().max(5_000_000).optional().nullable(),
+});
+
+const deleteUserSchema = z.object({
+  password: z.string().min(1),
+});
+
+const requestPasswordResetSchema = z.object({
+  email: z.string().trim().email(),
+});
+
+const confirmPasswordResetSchema = z.object({
+  email: z.string().trim().email(),
+  code: z.string().trim().min(4).max(16),
+  password: z.string().min(8).max(128),
+});
 
 const mapAuthUser = (user: any) => ({
   id: user._id.toString(),
   name: user.username,
   email: user.email,
+  role: user.is_owner ? 'owner' : user.is_admin ? 'admin' : user.is_moderator ? 'moderator' : 'user',
   isOwner: Boolean(user.is_owner),
   isAdmin: Boolean(user.is_admin),
   isModerator: Boolean(user.is_moderator),
@@ -17,18 +69,31 @@ const mapAuthUser = (user: any) => ({
   profileImage: user.profile_image ?? null,
 });
 
-const TOKEN_TTL_MINUTES = 15;
-
 const normalizeEmail = (email: unknown) => (typeof email === 'string' ? email.trim().toLowerCase() : '');
 
-const generateResetCode = () => randomBytes(3).toString('hex').toUpperCase();
+const authCookieOptions: CookieOptions = {
+  httpOnly: true,
+  secure: true,
+  sameSite: 'strict',
+  path: '/',
+};
 
-const hashResetCode = (code: string) => createHash('sha256').update(code).digest('hex');
+const setAuthCookies = (res: Response, accessToken: string, refreshToken: string) => {
+  res.cookie(ACCESS_COOKIE_NAME, accessToken, {
+    ...authCookieOptions,
+    maxAge: ACCESS_COOKIE_MAX_AGE,
+  });
 
-const commonPasswords = new Set([
-  '123456', 'password', '12345678', 'qwerty', '123456789', '12345', '1234', '111111', '1234567', 'dragon',
-  'baseball', 'abc123', 'football', 'monkey', 'letmein', 'shadow', 'master', '666666', 'qwertyuiop', '123321'
-]);
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+    ...authCookieOptions,
+    maxAge: REFRESH_COOKIE_MAX_AGE,
+  });
+};
+
+const clearAuthCookies = (res: Response) => {
+  res.clearCookie(ACCESS_COOKIE_NAME, authCookieOptions);
+  res.clearCookie(REFRESH_COOKIE_NAME, authCookieOptions);
+};
 
 const getPasswordScore = (password: string) => {
   let score = 0;
@@ -40,46 +105,96 @@ const getPasswordScore = (password: string) => {
   return score;
 };
 
-export const register = async (req: Request, res: Response) => {
-  const { name, email, password, profileImage } = req.body;
+const commonPasswords = new Set([
+  '123456', 'password', '12345678', 'qwerty', '123456789', '12345', '1234', '111111', '1234567', 'dragon',
+  'baseball', 'abc123', 'football', 'monkey', 'letmein', 'shadow', 'master', '666666', 'qwertyuiop', '123321'
+]);
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+const assertStrongPassword = (password: string) => {
+  if (password.length < 8) {
+    return 'A senha deve ter pelo menos 8 caracteres.';
   }
 
-  if (profileImage && typeof profileImage !== 'string') {
-    return res.status(400).json({ error: 'Imagem de perfil inválida' });
+  if (commonPasswords.has(password)) {
+    return 'Senha muito comum. Escolha uma senha mais forte.';
+  }
+
+  if (getPasswordScore(password) < 3) {
+    return 'Senha fraca. Use uma senha mais forte (maiúscula, minúscula, número e símbolo).';
+  }
+
+  return null;
+};
+
+const generateResetCode = () => randomBytes(3).toString('hex').toUpperCase();
+const hashResetCode = (code: string) => createHash('sha256').update(code).digest('hex');
+
+const getUserFlags = (user: any): JwtFlags => ({
+  isOwner: Boolean(user.is_owner),
+  isAdmin: Boolean(user.is_admin),
+  isModerator: Boolean(user.is_moderator),
+});
+
+const issueUserTokens = (user: any) => {
+  const tokenVersion = Number(user.token_version ?? 0);
+  const flags = getUserFlags(user);
+  const userId = user._id.toString();
+
+  const accessToken = generateAccessToken(userId, user.email, flags, tokenVersion);
+  const refreshJti = randomUUID();
+  const refreshToken = generateRefreshToken(userId, flags, tokenVersion, refreshJti);
+
+  return {
+    accessToken,
+    refreshToken,
+    refreshJti,
+  };
+};
+
+const getRefreshCookie = (req: Request) => {
+  const cookieValue = (req as any).cookies?.[REFRESH_COOKIE_NAME];
+  return typeof cookieValue === 'string' && cookieValue ? cookieValue : null;
+};
+
+const extractRefreshExpDate = (payload: any) => {
+  if (typeof payload?.exp === 'number') {
+    return new Date(payload.exp * 1000);
+  }
+
+  return new Date(Date.now() + REFRESH_COOKIE_MAX_AGE);
+};
+
+export const register = async (req: Request, res: Response) => {
+  const parsed = registerSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Dados inválidos para cadastro.' });
+  }
+
+  const { name, email, password, profileImage } = parsed.data;
+  const normalizedEmail = normalizeEmail(email);
+  const passwordError = assertStrongPassword(password);
+
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
   }
 
   try {
-    // server-side password strength checks
-    if (typeof password !== 'string' || password.length < 8) {
-      return res.status(400).json({ error: 'A senha deve ter pelo menos 8 caracteres.' });
-    }
-
-    // disallow very common passwords (small local list)
-    if (commonPasswords.has(password)) {
-      return res.status(400).json({ error: 'Senha muito comum. Escolha uma senha mais forte.' });
-    }
-
-    if (getPasswordScore(password) < 3) {
-      return res.status(400).json({ error: 'Senha fraca. Use uma senha mais forte (maiúscula, minúscula e número).' });
-    }
-
     const db = await getMongoDb();
     const users = db.collection('users');
 
-    const existingUser = await users.findOne({ email });
+    const existingUser = await users.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(409).json({ error: 'Email já cadastrado' });
+      return res.status(409).json({ error: 'Email já cadastrado.' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
+
     const result = await users.insertOne({
       username: name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       profile_image: profileImage ?? null,
+      token_version: 0,
       is_owner: false,
       is_admin: false,
       is_moderator: false,
@@ -89,74 +204,167 @@ export const register = async (req: Request, res: Response) => {
       created_at: new Date(),
     });
 
-    const userId = result.insertedId.toString();
-    const token = generateToken(userId, email, { isOwner: false, isAdmin: false, isModerator: false });
+    const user = await users.findOne({ _id: result.insertedId });
+    if (!user) {
+      return res.status(500).json({ error: 'Erro interno ao criar conta.' });
+    }
+
+    const { accessToken, refreshToken } = issueUserTokens(user);
+    setAuthCookies(res, accessToken, refreshToken);
 
     return res.status(201).json({
-      token,
-      user: { id: userId, name, email, isOwner: false, isAdmin: false, isModerator: false, isBanned: false, profileImage: profileImage ?? null },
+      token: accessToken,
+      user: mapAuthUser(user),
     });
-  } catch (error) {
-    return res.status(500).json({ error: 'Erro interno ao criar conta' });
+  } catch {
+    return res.status(500).json({ error: 'Erro interno ao criar conta.' });
   }
 };
 
 export const login = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+  const parsed = loginSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Email e senha válidos são obrigatórios.' });
   }
+
+  const normalizedEmail = normalizeEmail(parsed.data.email);
+  const { password } = parsed.data;
 
   try {
     const db = await getMongoDb();
     const users = db.collection('users');
 
-    const user = await users.findOne({ email });
+    const user = await users.findOne({ email: normalizedEmail });
     if (!user) {
-      return res.status(401).json({ error: 'Credenciais inválidas' });
+      return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Credenciais inválidas' });
+      return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
     if (user.is_banned) {
       return res.status(403).json({ error: 'Sua conta está bloqueada.' });
     }
 
-    const token = generateToken(user._id.toString(), user.email, {
-      isOwner: Boolean(user.is_owner),
-      isAdmin: Boolean(user.is_admin),
-      isModerator: Boolean(user.is_moderator),
-    });
+    const { accessToken, refreshToken } = issueUserTokens(user);
+    setAuthCookies(res, accessToken, refreshToken);
 
     return res.json({
-      token,
+      token: accessToken,
       user: mapAuthUser(user),
     });
-  } catch (error) {
-    return res.status(500).json({ error: 'Erro interno ao fazer login' });
+  } catch {
+    return res.status(500).json({ error: 'Erro interno ao fazer login.' });
   }
+};
+
+export const refreshSession = async (req: Request, res: Response) => {
+  const refreshToken = getRefreshCookie(req);
+  if (!refreshToken) {
+    return res.status(401).json({ error: 'Refresh token não fornecido.' });
+  }
+
+  let decoded: any;
+  try {
+    decoded = verifyRefreshToken(refreshToken);
+  } catch {
+    clearAuthCookies(res);
+    return res.status(401).json({ error: 'Refresh token inválido ou expirado.' });
+  }
+
+  try {
+    const db = await getMongoDb();
+    await ensureRefreshTokenBlacklistIndexes(db);
+
+    const alreadyBlacklisted = await isRefreshTokenBlacklisted(db, refreshToken);
+    if (alreadyBlacklisted) {
+      clearAuthCookies(res);
+      return res.status(401).json({ error: 'Refresh token já revogado.' });
+    }
+
+    const users = db.collection('users');
+    const user = await users.findOne({ _id: new ObjectId(decoded.userId) });
+
+    if (!user || user.is_banned) {
+      clearAuthCookies(res);
+      return res.status(401).json({ error: 'Sessão inválida.' });
+    }
+
+    const dbTokenVersion = Number(user.token_version ?? 0);
+    if (dbTokenVersion !== Number(decoded.tokenVersion ?? 0)) {
+      await blacklistRefreshToken(db, {
+        token: refreshToken,
+        userId: decoded.userId,
+        jti: String(decoded.jti ?? 'unknown'),
+        expiresAt: extractRefreshExpDate(decoded),
+        reason: 'forced_revoke',
+      });
+      clearAuthCookies(res);
+      return res.status(401).json({ error: 'Sessão expirada. Faça login novamente.' });
+    }
+
+    await blacklistRefreshToken(db, {
+      token: refreshToken,
+      userId: decoded.userId,
+      jti: String(decoded.jti ?? 'unknown'),
+      expiresAt: extractRefreshExpDate(decoded),
+      reason: 'rotation',
+    });
+
+    const { accessToken, refreshToken: nextRefreshToken } = issueUserTokens(user);
+    setAuthCookies(res, accessToken, nextRefreshToken);
+
+    return res.json({
+      token: accessToken,
+      user: mapAuthUser(user),
+    });
+  } catch {
+    return res.status(500).json({ error: 'Erro interno ao atualizar sessão.' });
+  }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  const refreshToken = getRefreshCookie(req);
+
+  try {
+    if (refreshToken) {
+      const decoded: any = verifyRefreshToken(refreshToken);
+      const db = await getMongoDb();
+      await ensureRefreshTokenBlacklistIndexes(db);
+
+      await blacklistRefreshToken(db, {
+        token: refreshToken,
+        userId: decoded.userId,
+        jti: String(decoded.jti ?? 'unknown'),
+        expiresAt: extractRefreshExpDate(decoded),
+        reason: 'logout',
+      });
+    }
+  } catch {
+    // Ignore invalid/expired refresh token and continue logout flow.
+  }
+
+  clearAuthCookies(res);
+  return res.status(200).json({ message: 'Logout realizado com sucesso.' });
 };
 
 export const updateUser = async (req: Request, res: Response) => {
   const userId = req.params.id;
-  const { name, email, currentPassword, newPassword, profileImage } = req.body;
   const authUser = (req as any).user;
 
   if (!authUser || authUser.userId !== userId) {
-    return res.status(403).json({ error: 'Não autorizado' });
+    return res.status(403).json({ error: 'Não autorizado.' });
   }
 
-  if (!name || !email) {
-    return res.status(400).json({ error: 'Nome e email são obrigatórios' });
+  const parsed = updateUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Dados inválidos para atualização.' });
   }
 
-  if (profileImage !== undefined && profileImage !== null && typeof profileImage !== 'string') {
-    return res.status(400).json({ error: 'Imagem de perfil inválida' });
-  }
+  const { name, email, currentPassword, newPassword, profileImage } = parsed.data;
+  const normalizedEmail = normalizeEmail(email);
 
   try {
     const db = await getMongoDb();
@@ -165,77 +373,91 @@ export const updateUser = async (req: Request, res: Response) => {
 
     const user = await users.findOne({ _id: objectId });
     if (!user) {
-      return res.status(404).json({ error: 'Usuário não encontrado' });
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
-    if (newPassword) {
-      if (!currentPassword) {
-        return res.status(400).json({ error: 'Senha atual é obrigatória' });
-      }
-
-      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ error: 'Senha atual inválida' });
-      }
+    const duplicate = await users.findOne({ email: normalizedEmail, _id: { $ne: objectId } });
+    if (duplicate) {
+      return res.status(409).json({ error: 'Email já está em uso por outra conta.' });
     }
 
-    const updates: any = { username: name, email };
+    const updates: Record<string, unknown> = {
+      username: name,
+      email: normalizedEmail,
+    };
 
     if (profileImage !== undefined) {
       updates.profile_image = profileImage;
     }
 
+    let shouldBumpTokenVersion = false;
+
     if (newPassword) {
-      // disallow reusing the same password
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Senha atual é obrigatória para trocar a senha.' });
+      }
+
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: 'Senha atual inválida.' });
+      }
+
       const isSame = await bcrypt.compare(newPassword, user.password);
-      if (isSame) return res.status(400).json({ error: 'A nova senha não pode ser igual à senha atual.' });
-
-      if (typeof newPassword !== 'string' || newPassword.length < 8) {
-        return res.status(400).json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' });
+      if (isSame) {
+        return res.status(400).json({ error: 'A nova senha não pode ser igual à senha atual.' });
       }
 
-      if (commonPasswords.has(newPassword)) {
-        return res.status(400).json({ error: 'Senha muito comum. Escolha uma senha mais forte.' });
+      const passwordError = assertStrongPassword(newPassword);
+      if (passwordError) {
+        return res.status(400).json({ error: passwordError });
       }
 
-      if (getPasswordScore(newPassword) < 3) {
-        return res.status(400).json({ error: 'Senha fraca. Use uma senha mais forte (maiúscula, minúscula e número).' });
-      }
-
-      updates.password = await bcrypt.hash(newPassword, 10);
+      updates.password = await bcrypt.hash(newPassword, 12);
+      shouldBumpTokenVersion = true;
     }
 
-    await users.updateOne({ _id: objectId }, { $set: updates });
+    const updateQuery: Record<string, unknown> = { $set: updates };
+    if (shouldBumpTokenVersion) {
+      updateQuery.$inc = { token_version: 1 };
+    }
+
+    await users.updateOne({ _id: objectId }, updateQuery);
+
+    if (shouldBumpTokenVersion) {
+      clearAuthCookies(res);
+    }
 
     return res.json({
-      message: 'Conta atualizada com sucesso',
+      message: shouldBumpTokenVersion
+        ? 'Conta atualizada com sucesso. Faça login novamente.'
+        : 'Conta atualizada com sucesso.',
       user: {
-        id: userId,
+        ...mapAuthUser({
+          ...user,
+          ...updates,
+          _id: objectId,
+        }),
         name,
-        email,
-        isOwner: Boolean(user.is_owner),
-        isAdmin: Boolean(user.is_admin),
-        isModerator: Boolean(user.is_moderator),
-        isBanned: Boolean(user.is_banned),
+        email: normalizedEmail,
         profileImage: profileImage ?? (user.profile_image ?? null),
       },
     });
-  } catch (error) {
-    return res.status(500).json({ error: 'Erro interno ao atualizar conta' });
+  } catch {
+    return res.status(500).json({ error: 'Erro interno ao atualizar conta.' });
   }
 };
 
 export const deleteUser = async (req: Request, res: Response) => {
   const userId = req.params.id;
-  const { password } = req.body;
   const authUser = (req as any).user;
 
   if (!authUser || authUser.userId !== userId) {
-    return res.status(403).json({ error: 'Não autorizado' });
+    return res.status(403).json({ error: 'Não autorizado.' });
   }
 
-  if (!password) {
-    return res.status(400).json({ error: 'Senha é obrigatória' });
+  const parsed = deleteUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Senha é obrigatória.' });
   }
 
   try {
@@ -245,19 +467,20 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     const user = await users.findOne({ _id: objectId });
     if (!user) {
-      return res.status(404).json({ error: 'Usuário não encontrado' });
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(parsed.data.password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Senha inválida' });
+      return res.status(401).json({ error: 'Senha inválida.' });
     }
 
     await users.deleteOne({ _id: objectId });
+    clearAuthCookies(res);
 
-    return res.json({ message: 'Conta deletada com sucesso' });
-  } catch (error) {
-    return res.status(500).json({ error: 'Erro interno ao deletar conta' });
+    return res.json({ message: 'Conta deletada com sucesso.' });
+  } catch {
+    return res.status(500).json({ error: 'Erro interno ao deletar conta.' });
   }
 };
 
@@ -268,21 +491,9 @@ export const listUsers = async (_req: Request, res: Response) => {
 
     const rows = await users.find({}).sort({ created_at: -1 }).toArray();
 
-    return res.json(
-      rows.map((user) => ({
-        id: user._id.toString(),
-        name: user.username,
-        email: user.email,
-        isOwner: Boolean(user.is_owner),
-        isAdmin: Boolean(user.is_admin),
-        isModerator: Boolean(user.is_moderator),
-        isBanned: Boolean(user.is_banned),
-        profileImage: user.profile_image ?? null,
-        createdAt: user.created_at,
-      }))
-    );
-  } catch (error) {
-    return res.status(500).json({ error: 'Erro interno ao listar usuários' });
+    return res.json(rows.map(mapAuthUser));
+  } catch {
+    return res.status(500).json({ error: 'Erro interno ao listar usuários.' });
   }
 };
 
@@ -304,29 +515,19 @@ export const currentSession = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
-    return res.json({
-      user: {
-        id: user._id.toString(),
-        name: user.username,
-        email: user.email,
-        isOwner: Boolean(user.is_owner),
-        isAdmin: Boolean(user.is_admin),
-        isModerator: Boolean(user.is_moderator),
-        isBanned: Boolean(user.is_banned),
-        profileImage: user.profile_image ?? null,
-      },
-    });
-  } catch (error) {
+    return res.json({ user: mapAuthUser(user) });
+  } catch {
     return res.status(500).json({ error: 'Erro interno ao recuperar sessão.' });
   }
 };
 
 export const requestPasswordReset = async (req: Request, res: Response) => {
-  const email = normalizeEmail(req.body?.email);
-
-  if (!email) {
-    return res.status(400).json({ error: 'Email é obrigatório.' });
+  const parsed = requestPasswordResetSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Email inválido.' });
   }
+
+  const email = normalizeEmail(parsed.data.email);
 
   try {
     const db = await getMongoDb();
@@ -366,7 +567,7 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
         resetUrl,
         expiresInMinutes: TOKEN_TTL_MINUTES,
       });
-    } catch (emailError) {
+    } catch {
       await resetTokens.deleteMany({ userId: user._id.toString(), codeHash: resetCodeHash });
       return res.status(500).json({ error: 'Não foi possível enviar o email de recuperação.' });
     }
@@ -377,22 +578,24 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
       resetUrl,
       expiresInMinutes: TOKEN_TTL_MINUTES,
     });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'Erro interno ao gerar recuperação de senha.' });
   }
 };
 
 export const confirmPasswordReset = async (req: Request, res: Response) => {
-  const email = normalizeEmail(req.body?.email);
-  const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
-  const newPassword = typeof req.body?.password === 'string' ? req.body.password : '';
-
-  if (!email || !code || !newPassword) {
-    return res.status(400).json({ error: 'Email, código e nova senha são obrigatórios.' });
+  const parsed = confirmPasswordResetSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Dados inválidos para redefinição.' });
   }
 
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+  const email = normalizeEmail(parsed.data.email);
+  const code = parsed.data.code.trim().toUpperCase();
+  const newPassword = parsed.data.password;
+
+  const passwordError = assertStrongPassword(newPassword);
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
   }
 
   try {
@@ -416,27 +619,16 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
-    // do not allow reusing the previous password
     const isSame = await bcrypt.compare(newPassword, user.password);
-    if (isSame) return res.status(400).json({ error: 'A nova senha não pode ser igual à senha anterior.' });
-
-    if (typeof newPassword !== 'string' || newPassword.length < 8) {
-      return res.status(400).json({ error: 'A nova senha deve ter pelo menos 8 caracteres.' });
+    if (isSame) {
+      return res.status(400).json({ error: 'A nova senha não pode ser igual à senha anterior.' });
     }
 
-    if (commonPasswords.has(newPassword)) {
-      return res.status(400).json({ error: 'Senha muito comum. Escolha uma senha mais forte.' });
-    }
-
-    if (getPasswordScore(newPassword) < 3) {
-      return res.status(400).json({ error: 'Senha fraca. Use uma senha mais forte (maiúscula, minúscula e número).' });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     await users.updateOne(
       { _id: new ObjectId(token.userId) },
-      { $set: { password: hashedPassword } }
+      { $set: { password: hashedPassword }, $inc: { token_version: 1 } }
     );
 
     await resetTokens.updateOne(
@@ -445,7 +637,7 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     );
 
     return res.json({ message: 'Senha redefinida com sucesso.' });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'Erro interno ao redefinir senha.' });
   }
 };

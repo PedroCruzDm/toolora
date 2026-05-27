@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import * as dotenv from 'dotenv';
 import { uploadsRootDir } from './src/config/uploads';
 
@@ -50,6 +51,7 @@ app.options('*', cors({ origin: allowedOrigins, credentials: true }));
 // Allow larger JSON payloads because profile images are sent as base64 data URLs on user update.
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
 app.use('/uploads', express.static(uploadsRootDir));
 
 app.use('/api/auth', authRoutes);

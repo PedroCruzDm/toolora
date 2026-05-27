@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Moon, Sun, UserCircle2, ChevronDown, Settings, LogOut, CircleHelp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AuthSession, clearAuthSession, getAuthToken, hasAdminAccess, hasModeratorAccess, readAuthSession, updateAuthUser } from "@/lib/auth";
+import { AuthSession, clearAuthSession, hasAdminAccess, hasModeratorAccess, readAuthSession, updateAuthUser } from "@/lib/auth";
 import { useLocation } from "react-router-dom";
 import api from "@/services/api";
 import { HomeView, useHomeView } from "@/lib/homeView";
@@ -45,11 +45,6 @@ export default function Navbar() {
       const localSession = readAuthSession();
       setAuthUser(localSession);
 
-      if (!getAuthToken()) {
-        setAuthUser(null);
-        return;
-      }
-
       try {
         const response = await api.get<{ user: { name?: string; email: string; isOwner: boolean; isAdmin: boolean; isModerator: boolean; profileImage?: string | null } }>("/auth/me");
         const user = response.data.user;
@@ -65,7 +60,7 @@ export default function Navbar() {
         setAuthUser(session);
         updateAuthUser(user);
       } catch {
-        setAuthUser(localSession);
+        setAuthUser(localSession ?? null);
       }
     };
 
@@ -88,7 +83,13 @@ export default function Navbar() {
     }
   }, [isMenuOpen]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // ignore logout API errors and always clear local session
+    }
+
     clearAuthSession();
     setAuthUser(null);
     setIsMenuOpen(false);

@@ -9,6 +9,7 @@ const resolvedBaseUrl =
 
 const api = axios.create({
   baseURL: resolvedBaseUrl,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -17,7 +18,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = getAuthToken();
-  if (token) {
+  if (token && token.split('.').length === 3) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
@@ -36,7 +37,12 @@ api.interceptors.response.use(
   async (error) => {
     const config = error.config;
     const requestUrl = typeof config?.url === 'string' ? config.url : '';
-    const isLoginRequest = requestUrl.includes('/auth/login');
+    const isAuthEndpoint =
+      requestUrl.includes('/auth/login') ||
+      requestUrl.includes('/auth/register') ||
+      requestUrl.includes('/auth/refresh') ||
+      requestUrl.includes('/auth/logout') ||
+      requestUrl.includes('/auth/password-reset/');
     
     if (!config.retryCount) { // repete configuração
       config.retryCount = 0;
@@ -55,15 +61,21 @@ api.interceptors.response.use(
       return api(config);
     }
 
-    if (error.response?.status === 401 && !isLoginRequest) {
-      clearAuthSession();
-      // Navigate SPA to the login view (app no longer exposes /login route)
+    if (error.response?.status === 401 && !isAuthEndpoint && config && !config._retryAuth) {
+      config._retryAuth = true;
+
       try {
-        window.sessionStorage.setItem('toolora-home-view', 'login');
+        await api.post('/auth/refresh');
+        return api(config);
       } catch {
-        // ignore sessionStorage failures
+        clearAuthSession();
+        try {
+          window.sessionStorage.setItem('toolora-home-view', 'login');
+        } catch {
+          // ignore sessionStorage failures
+        }
+        window.location.replace('/');
       }
-      window.location.replace('/');
     }
     
     return Promise.reject(error);

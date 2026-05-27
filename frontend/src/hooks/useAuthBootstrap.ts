@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/services/api";
-import { getAuthToken, readStoredAuthUser, updateAuthUser } from "@/lib/auth";
+import { readStoredAuthUser, updateAuthUser } from "@/lib/auth";
 
 type BootstrapUser = {
   id: string;
@@ -27,9 +27,8 @@ type MeResponse = {
 
 const buildUserFromStorage = (): BootstrapUser | null => {
   const storedUser = readStoredAuthUser();
-  const token = getAuthToken();
 
-  if (storedUser || token) {
+  if (storedUser) {
     return {
       id: String(storedUser?.id ?? ""),
       displayName: storedUser?.name ?? storedUser?.email ?? "",
@@ -53,12 +52,6 @@ export const useAuthBootstrap = () => {
     let active = true;
 
     const bootstrap = async () => {
-      const token = getAuthToken();
-      if (!token) {
-        if (active) setReady(true);
-        return;
-      }
-
       try {
         const response = await api.get<MeResponse>("/auth/me");
         if (!active) return;

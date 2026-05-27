@@ -63,6 +63,12 @@ export default function DeleteAccount() {
         data: { password },
       });
 
+      try {
+        await api.post('/auth/logout');
+      } catch {
+        // Session may already be invalidated by account deletion.
+      }
+
       clearAuthSession();
 
       toast.success("Conta deletada com sucesso.");

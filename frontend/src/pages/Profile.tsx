@@ -145,7 +145,13 @@ export default function Profile() {
     loadMessages();
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Ignore logout API errors and continue local cleanup.
+    }
+
     clearAuthSession();
     navigate("/login");
   };

@@ -184,6 +184,12 @@ export default function Settings() {
         data: { password: deletePassword },
       });
 
+      try {
+        await api.post('/auth/logout');
+      } catch {
+        // Session may already be invalidated by account deletion.
+      }
+
       clearAuthSession();
       toast.success("Conta deletada com sucesso.");
       navigate("/");
