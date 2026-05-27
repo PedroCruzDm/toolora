@@ -5,7 +5,7 @@ import * as z from "zod";
 import axios from "axios";
 import { motion } from "framer-motion";
 import { Link as LinkIcon, Pencil } from "lucide-react";
-import { useRef, useState, type ChangeEvent, type ClipboardEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { notifySuccess, notifyError } from "@/lib/toast";
 
@@ -57,6 +57,12 @@ export default function Submit() {
   const isLogged = Boolean(getAuthToken());
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!isLogged) {
+      navigate("/cadastro", { replace: true });
+    }
+  }, [isLogged, navigate]);
 
   const {
     control,

@@ -215,6 +215,15 @@ export default function Home({ forcedView }: HomeProps) {
     }
   };
 
+  const handleRecommendClick = () => {
+    if (getAuthToken()) {
+      setView("recomendar");
+      return;
+    }
+
+    setView("cadastro");
+  };
+
   if (view === "categorias") {
     return <Categories />;
   }
@@ -287,7 +296,7 @@ export default function Home({ forcedView }: HomeProps) {
               size="lg" 
               variant="outline" 
               className="w-full sm:w-auto px-6 sm:px-12 py-5 sm:py-8 text-base sm:text-xl rounded-2xl border-2 border-primary text-primary hover:bg-primary/10 transition-all duration-300"
-              onClick={() => setView("recomendar")}
+              onClick={handleRecommendClick}
             >
               Recomendar ferramenta
             </Button>

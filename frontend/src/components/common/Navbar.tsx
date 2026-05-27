@@ -98,6 +98,12 @@ export default function Navbar() {
   };
 
   const handleMainViewChange = (next: HomeView) => {
+    if (next === "recomendar" && !readAuthSession()) {
+      setView("cadastro");
+      if (location.pathname !== "/") navigate("/");
+      return;
+    }
+
     setView(next);
     if (location.pathname !== "/") {
       navigate("/");
