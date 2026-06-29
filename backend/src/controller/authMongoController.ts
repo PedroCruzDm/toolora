@@ -5,17 +5,8 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { getMongoDb } from '../config/mongo';
 import { sendPasswordResetEmail } from '../services/mailer.service';
-import {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken,
-  JwtFlags,
-} from '../services/jwt.service';
-import {
-  ensureRefreshTokenBlacklistIndexes,
-  blacklistRefreshToken,
-  isRefreshTokenBlacklisted,
-} from '../services/auth.service';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JwtFlags } from '../services/jwt.service';
+import { ensureRefreshTokenBlacklistIndexes, blacklistRefreshToken, isRefreshTokenBlacklisted } from '../services/auth.service';
 
 const ACCESS_COOKIE_NAME = 'access_token';
 const REFRESH_COOKIE_NAME = 'refresh_token';

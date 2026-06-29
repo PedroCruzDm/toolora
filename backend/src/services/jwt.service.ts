@@ -1,13 +1,15 @@
 import jwt from 'jsonwebtoken';
 
-const ACCESS_SECRET: string = process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET ?? '';
-const REFRESH_SECRET: string = process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET ?? '';
-const ACCESS_EXPIRES_IN = (process.env.JWT_ACCESS_EXPIRES_IN ?? '15m') as jwt.SignOptions['expiresIn'];
-const REFRESH_EXPIRES_IN = (process.env.JWT_REFRESH_EXPIRES_IN ?? '7d') as jwt.SignOptions['expiresIn'];
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
 
 if (!ACCESS_SECRET || !REFRESH_SECRET) {
-  throw new Error('Segredos JWT não configurados. Defina JWT_SECRET (ou JWT_ACCESS_SECRET/JWT_REFRESH_SECRET).');
+  throw new Error('Segredos JWT não configurados. Defina JWT_ACCESS_SECRET e JWT_REFRESH_SECRET no .env');
 }
+
+// Garantia de tipo para o TypeScript
+const accessSecret: string = ACCESS_SECRET;
+const refreshSecret: string = REFRESH_SECRET;
 
 export type AppRole = 'owner' | 'admin' | 'moderator' | 'user';
 
@@ -25,6 +27,8 @@ export type AccessTokenPayload = {
   isOwner: boolean;
   isAdmin: boolean;
   isModerator: boolean;
+  iat?: number;
+  exp?: number;
 };
 
 export type RefreshTokenPayload = {
@@ -32,6 +36,8 @@ export type RefreshTokenPayload = {
   role: AppRole;
   tokenVersion: number;
   jti: string;
+  iat?: number;
+  exp?: number;
 };
 
 const resolveRole = (flags: JwtFlags): AppRole => {
@@ -42,10 +48,10 @@ const resolveRole = (flags: JwtFlags): AppRole => {
 };
 
 export function generateAccessToken(
-  userId: string | number,
+  userId: string,
   email: string,
   flags: JwtFlags,
-  tokenVersion: number
+  tokenVersion: number = 0
 ): string {
   const role = resolveRole(flags);
 
@@ -55,39 +61,37 @@ export function generateAccessToken(
       email,
       role,
       tokenVersion,
-      isOwner: role === 'owner',
-      isAdmin: role === 'owner' || role === 'admin',
-      isModerator: role === 'moderator',
+      isOwner: Boolean(flags.isOwner),
+      isAdmin: Boolean(flags.isAdmin),
+      isModerator: Boolean(flags.isModerator),
     },
-    ACCESS_SECRET,
-    { expiresIn: ACCESS_EXPIRES_IN }
+    accessSecret,
+    { expiresIn: '15m' }
   );
 }
 
 export function generateRefreshToken(
-  userId: string | number,
+  userId: string,
   flags: JwtFlags,
-  tokenVersion: number,
-  jti: string
+  tokenVersion: number = 0,
+  jti?: string
 ): string {
-  const role = resolveRole(flags);
-
   return jwt.sign(
     {
       userId: String(userId),
-      role,
+      role: resolveRole(flags),
       tokenVersion,
-      jti,
+      jti: jti || Date.now().toString(),
     },
-    REFRESH_SECRET,
-    { expiresIn: REFRESH_EXPIRES_IN }
+    refreshSecret,
+    { expiresIn: '7d' }
   );
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
-  return jwt.verify(token, ACCESS_SECRET) as AccessTokenPayload;
+  return jwt.verify(token, accessSecret) as AccessTokenPayload;
 }
 
 export function verifyRefreshToken(token: string): RefreshTokenPayload {
-  return jwt.verify(token, REFRESH_SECRET) as RefreshTokenPayload;
+  return jwt.verify(token, refreshSecret) as RefreshTokenPayload;
 }
