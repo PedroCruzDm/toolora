@@ -9,3 +9,5 @@ services:
     envVars:
       - key: SERVE_FRONTEND
         value: "true"
+      - key: ENCRYPTION_KEY
+        sync: false

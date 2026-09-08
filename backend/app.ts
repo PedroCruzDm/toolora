@@ -4,7 +4,6 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import * as dotenv from 'dotenv';
 import { uploadsRootDir } from './src/config/uploads';
-
 import authRoutes from './src/routes/auth.routes';
 import adminRoutes from './src/routes/admin.routes';
 import messageRoutes from './src/routes/message.routes';
@@ -14,8 +13,6 @@ dotenv.config();
 
 const app = express();
 
-// CORS configuration with explicit origin validation.
-// Allow additional production frontends via env variable `FRONTEND_ORIGINS`
 const defaultOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',

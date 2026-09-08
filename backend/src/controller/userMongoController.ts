@@ -2,16 +2,17 @@ import { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getMongoDb } from '../config/mongo';
 import { AuthenticatedRequest } from '../types';
+import { decrypt, encrypt } from '../services/encryption.service';
 
 const mapUser = (user: any) => ({
   id: user._id.toString(),
-  name: user.username,
-  email: user.email,
+  name: decrypt(user.username_encrypted ?? user.username) ?? '',
+  email: decrypt(user.email_encrypted ?? user.email) ?? '',
   isOwner: Boolean(user.is_owner),
   isAdmin: Boolean(user.is_admin),
   isModerator: Boolean(user.is_moderator),
   isBanned: Boolean(user.is_banned),
-  banReason: user.ban_reason ?? null,
+  banReason: decrypt(user.ban_reason_encrypted ?? user.ban_reason) ?? null,
   bannedAt: user.banned_at ?? null,
   profileImage: user.profile_image ?? null,
   createdAt: user.created_at,
@@ -38,7 +39,7 @@ const mapMessage = (message: any) => ({
   senderUserId: message.sender_user_id ?? null,
   senderRole: message.sender_role,
   recipientUserId: message.recipient_user_id,
-  message: message.message,
+  message: decrypt(message.message_encrypted ?? message.message) ?? '',
   messageType: message.message_type,
   readAt: message.read_at ?? null,
   createdAt: message.created_at,
@@ -130,7 +131,7 @@ export const banUser = async (req: AuthenticatedRequest, res: Response) => {
     const objectId = new ObjectId(targetUserId);
 
     await users.updateOne({ _id: objectId }, {
-      $set: { is_banned: true, ban_reason: reason, banned_at: new Date() }
+      $set: { ban_reason_encrypted: encrypt(reason), is_banned: true, banned_at: new Date() }
     });
 
     return res.json({ message: 'Usuário banido com sucesso.' });
@@ -151,7 +152,7 @@ export const unbanUser = async (req: AuthenticatedRequest, res: Response) => {
     const objectId = new ObjectId(targetUserId);
 
     await users.updateOne({ _id: objectId }, {
-      $set: { is_banned: false, ban_reason: null, banned_at: null }
+      $set: { ban_reason_encrypted: null, is_banned: false, banned_at: null }
     });
 
     return res.json({ message: 'Usuário desbanido com sucesso.' });
@@ -180,7 +181,7 @@ export const sendWarningMessage = async (req: AuthenticatedRequest, res: Respons
       sender_user_id: new ObjectId(authUser.userId),
       sender_role: senderRole,
       recipient_user_id: new ObjectId(targetUserId),
-      message,
+      message_encrypted: encrypt(message),
       message_type: 'warning',
       read_at: null,
       created_at: new Date(),

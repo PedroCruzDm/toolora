@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ObjectId } from 'mongodb';
 import { getMongoDb } from '../config/mongo';
 import { verifyAccessToken } from '../services/jwt.service';
+import { decrypt } from '../services/encryption.service';
 
 const ACCESS_COOKIE_NAME = 'access_token';
 
@@ -61,7 +62,7 @@ export const authMiddleware = async (
     // Objeto user limpo e tipado no request
     (req as any).user = {
       userId: user._id.toString(),
-      email: user.email,
+      email: decrypt(user.email_encrypted ?? user.email) ?? '',
       role: user.is_owner ? 'owner' : user.is_admin ? 'admin' : user.is_moderator ? 'moderator' : 'user',
       isOwner: Boolean(user.is_owner),
       isAdmin: Boolean(user.is_admin || user.is_owner),

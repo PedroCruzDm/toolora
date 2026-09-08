@@ -23,22 +23,19 @@ const HomeViewContext = createContext<HomeViewContextValue | null>(null);
 
 const getInitialView = (): HomeView => {
   if (typeof window === "undefined") return "inicio";
+
   const saved = window.sessionStorage.getItem(HOME_VIEW_KEY);
-  if (
+  const isPersistedView =
     saved === "categorias" ||
     saved === "recomendar" ||
     saved === "inicio" ||
-    saved === "login" ||
-    saved === "cadastro" ||
     saved === "admin-users" ||
     saved === "admin-pending-posts" ||
     saved === "admin-reviewed-posts" ||
     saved === "admin-requests" ||
-    saved === "admin-inbox"
-  ) {
-    return saved;
-  }
-  return "inicio";
+    saved === "admin-inbox";
+
+  return isPersistedView ? (saved as HomeView) : "inicio";
 };
 
 export function HomeViewProvider({ children }: { children: ReactNode }) {
@@ -46,8 +43,24 @@ export function HomeViewProvider({ children }: { children: ReactNode }) {
 
   const setView = (next: HomeView) => {
     setViewState(next);
+
     if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(HOME_VIEW_KEY, next);
+      const shouldPersistView =
+        next === "inicio" ||
+        next === "categorias" ||
+        next === "recomendar" ||
+        next === "admin-users" ||
+        next === "admin-pending-posts" ||
+        next === "admin-reviewed-posts" ||
+        next === "admin-requests" ||
+        next === "admin-inbox";
+
+      if (shouldPersistView) {
+        window.sessionStorage.setItem(HOME_VIEW_KEY, next);
+        return;
+      }
+
+      window.sessionStorage.removeItem(HOME_VIEW_KEY);
     }
   };
 

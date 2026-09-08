@@ -1,17 +1,18 @@
 import { Request, Response } from 'express';
 import { getMongoDb } from '../config/mongo';
+import { decrypt, encrypt } from '../services/encryption.service';
 
 export type ToolStatus = 'pending' | 'approved' | 'rejected';
 
 type ToolDocument = {
   id: number;
   userId: number;
-  name: string;
-  description: string;
-  screenshot: string | null;
-  url: string;
-  category: string;
-  tags: string[];
+  name?: string;
+  description?: string;
+  screenshot?: string | null;
+  url?: string;
+  category?: string;
+  tags?: string[];
   likesCount: number;
   likedUserIds: number[];
   favoritedUserIds: number[];
@@ -22,6 +23,12 @@ type ToolDocument = {
   blockedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  nameEncrypted?: string | null;
+  descriptionEncrypted?: string | null;
+  screenshotEncrypted?: string | null;
+  urlEncrypted?: string | null;
+  categoryEncrypted?: string | null;
+  tagsEncrypted?: string | null;
 };
 
 const normalizeTags = (tags: unknown): string[] => {
@@ -55,12 +62,12 @@ const parseTags = (value: unknown): string[] => {
 
 const toToolResponse = (tool: ToolDocument) => ({
   id: tool.id,
-  name: tool.name,
-  description: tool.description,
-  screenshot: tool.screenshot,
-  url: tool.url,
-  category: tool.category,
-  tags: tool.tags,
+  name: decrypt(tool.nameEncrypted ?? tool.name) ?? '',
+  description: decrypt(tool.descriptionEncrypted ?? tool.description) ?? '',
+  screenshot: decrypt(tool.screenshotEncrypted ?? tool.screenshot) ?? null,
+  url: decrypt(tool.urlEncrypted ?? tool.url) ?? '',
+  category: decrypt(tool.categoryEncrypted ?? tool.category) ?? '',
+  tags: tool.tagsEncrypted ? JSON.parse(decrypt(tool.tagsEncrypted) ?? '[]') : tool.tags,
   likes_count: tool.likesCount,
   status: tool.status,
   approved_at: tool.approvedAt,
@@ -122,12 +129,12 @@ export const createTool = async (req: Request, res: Response) => {
   await toolCollection.insertOne({
     id,
     userId: user.userId,
-    name,
-    description: description ?? '',
-    screenshot: screenshot?.trim() ? screenshot.trim() : null,
-    url,
-    category,
-    tags: normalizedTags,
+    nameEncrypted: encrypt(name),
+    descriptionEncrypted: encrypt(description ?? ''),
+    screenshotEncrypted: encrypt(screenshot?.trim() ? screenshot.trim() : null),
+    urlEncrypted: encrypt(url),
+    categoryEncrypted: encrypt(category),
+    tagsEncrypted: encrypt(JSON.stringify(normalizedTags)),
     likesCount: 0,
     likedUserIds: [],
     favoritedUserIds: [],

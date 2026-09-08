@@ -7,6 +7,7 @@ import { getMongoDb } from '../config/mongo';
 import { sendPasswordResetEmail } from '../services/mailer.service';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JwtFlags } from '../services/jwt.service';
 import { ensureRefreshTokenBlacklistIndexes, blacklistRefreshToken, isRefreshTokenBlacklisted } from '../services/auth.service';
+import { decrypt, encrypt, hashForLookup } from '../services/encryption.service';
 
 const ACCESS_COOKIE_NAME = 'access_token';
 const REFRESH_COOKIE_NAME = 'refresh_token';
@@ -50,17 +51,19 @@ const confirmPasswordResetSchema = z.object({
 
 const mapAuthUser = (user: any) => ({
   id: user._id.toString(),
-  name: user.username,
-  email: user.email,
+  name: decrypt(user.username_encrypted ?? user.username) ?? '',
+  email: decrypt(user.email_encrypted ?? user.email) ?? '',
   role: user.is_owner ? 'owner' : user.is_admin ? 'admin' : user.is_moderator ? 'moderator' : 'user',
   isOwner: Boolean(user.is_owner),
   isAdmin: Boolean(user.is_admin),
   isModerator: Boolean(user.is_moderator),
   isBanned: Boolean(user.is_banned),
-  profileImage: user.profile_image ?? null,
+  profileImage: decrypt(user.profile_image_encrypted ?? user.profile_image) ?? null,
 });
 
 const normalizeEmail = (email: unknown) => (typeof email === 'string' ? email.trim().toLowerCase() : '');
+const getUserEmail = (user: any) => decrypt(user.email_encrypted ?? user.email) ?? '';
+const getUserName = (user: any) => decrypt(user.username_encrypted ?? user.username) ?? '';
 
 const authCookieOptions: CookieOptions = {
   httpOnly: true,
@@ -131,7 +134,7 @@ const issueUserTokens = (user: any) => {
   const flags = getUserFlags(user);
   const userId = user._id.toString();
 
-  const accessToken = generateAccessToken(userId, user.email, flags, tokenVersion);
+  const accessToken = generateAccessToken(userId, getUserEmail(user), flags, tokenVersion);
   const refreshJti = randomUUID();
   const refreshToken = generateRefreshToken(userId, flags, tokenVersion, refreshJti);
 
@@ -173,7 +176,9 @@ export const register = async (req: Request, res: Response) => {
     const db = await getMongoDb();
     const users = db.collection('users');
 
-    const existingUser = await users.findOne({ email: normalizedEmail });
+    const existingUser = await users.findOne({
+      $or: [{ email_hash: hashForLookup(normalizedEmail) }, { email: normalizedEmail }],
+    });
     if (existingUser) {
       return res.status(409).json({ error: 'Email já cadastrado.' });
     }
@@ -181,10 +186,11 @@ export const register = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const result = await users.insertOne({
-      username: name,
-      email: normalizedEmail,
+      username_encrypted: encrypt(name),
+      email_encrypted: encrypt(normalizedEmail),
+      email_hash: hashForLookup(normalizedEmail),
       password: hashedPassword,
-      profile_image: profileImage ?? null,
+      profile_image_encrypted: encrypt(profileImage ?? null),
       token_version: 0,
       is_owner: false,
       is_admin: false,
@@ -225,7 +231,9 @@ export const login = async (req: Request, res: Response) => {
     const db = await getMongoDb();
     const users = db.collection('users');
 
-    const user = await users.findOne({ email: normalizedEmail });
+    const user = await users.findOne({
+      $or: [{ email_hash: hashForLookup(normalizedEmail) }, { email: normalizedEmail }],
+    });
     if (!user) {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
@@ -367,18 +375,22 @@ export const updateUser = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
-    const duplicate = await users.findOne({ email: normalizedEmail, _id: { $ne: objectId } });
+    const duplicate = await users.findOne({
+      $or: [{ email_hash: hashForLookup(normalizedEmail) }, { email: normalizedEmail }],
+      _id: { $ne: objectId },
+    });
     if (duplicate) {
       return res.status(409).json({ error: 'Email já está em uso por outra conta.' });
     }
 
     const updates: Record<string, unknown> = {
-      username: name,
-      email: normalizedEmail,
+      username_encrypted: encrypt(name),
+      email_encrypted: encrypt(normalizedEmail),
+      email_hash: hashForLookup(normalizedEmail),
     };
 
     if (profileImage !== undefined) {
-      updates.profile_image = profileImage;
+      updates.profile_image_encrypted = encrypt(profileImage);
     }
 
     let shouldBumpTokenVersion = false;
@@ -430,7 +442,7 @@ export const updateUser = async (req: Request, res: Response) => {
         }),
         name,
         email: normalizedEmail,
-        profileImage: profileImage ?? (user.profile_image ?? null),
+        profileImage: profileImage ?? decrypt(user.profile_image_encrypted ?? user.profile_image) ?? null,
       },
     });
   } catch {
@@ -527,7 +539,9 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
     await resetTokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-    const user = await users.findOne({ email });
+    const user = await users.findOne({
+      $or: [{ email_hash: hashForLookup(email) }, { email }],
+    });
     if (!user) {
       return res.status(404).json({ error: 'Email não encontrado.' });
     }
@@ -540,7 +554,7 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
     await resetTokens.insertOne({
       userId: user._id.toString(),
-      email: user.email,
+      emailHash: hashForLookup(email),
       codeHash: resetCodeHash,
       expiresAt,
       createdAt: new Date(),
@@ -552,8 +566,8 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
     try {
       await sendPasswordResetEmail({
-        to: user.email,
-        name: user.username,
+        to: getUserEmail(user),
+        name: getUserName(user),
         code: resetCode,
         resetUrl,
         expiresInMinutes: TOKEN_TTL_MINUTES,
@@ -595,7 +609,7 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     const resetTokens = db.collection('password_reset_tokens');
 
     const token = await resetTokens.findOne({
-      email,
+      emailHash: hashForLookup(email),
       codeHash: hashResetCode(code),
       usedAt: null,
       expiresAt: { $gt: new Date() },
@@ -606,7 +620,7 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     }
 
     const user = await users.findOne({ _id: new ObjectId(token.userId) });
-    if (!user || user.email !== email) {
+    if (!user || getUserEmail(user) !== email) {
       return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 

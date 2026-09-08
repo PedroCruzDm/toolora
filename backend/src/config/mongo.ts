@@ -22,6 +22,10 @@ const connectMongo = async () => {
     await client.connect();
 
     await client.db('admin').command({ ping: 1 });
+    await client.db(mongoDbName).collection('users').createIndex(
+      { email_hash: 1 },
+      { unique: true, sparse: true }
+    );
     console.log(`Pinged your deployment. Connected to MongoDB database "${mongoDbName}"!`);
   }
 
