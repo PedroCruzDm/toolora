@@ -38,6 +38,7 @@ api.interceptors.response.use(
     const config = error.config;
     const requestUrl = typeof config?.url === 'string' ? config.url : '';
     const isAuthEndpoint =
+      requestUrl.includes('/auth/me') ||
       requestUrl.includes('/auth/login') ||
       requestUrl.includes('/auth/register') ||
       requestUrl.includes('/auth/refresh') ||
@@ -69,12 +70,6 @@ api.interceptors.response.use(
         return api(config);
       } catch {
         clearAuthSession();
-        try {
-          window.sessionStorage.setItem('toolora-home-view', 'login');
-        } catch {
-          // ignore sessionStorage failures
-        }
-        window.location.replace('/');
       }
     }
     

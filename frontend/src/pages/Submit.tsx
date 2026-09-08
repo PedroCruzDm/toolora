@@ -332,7 +332,7 @@ export default function Submit() {
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-7 text-lg font-semibold rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 hover:scale-[1.02] hover:shadow-xl transition-all duration-300 shadow-lg text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-7 text-lg font-semibold rounded-2xl bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] hover:shadow-xl transition-all duration-300 shadow-lg text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">

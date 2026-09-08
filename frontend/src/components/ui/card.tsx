@@ -77,7 +77,7 @@ const ToolCard = React.forwardRef<HTMLDivElement, ToolCardProps>(
             alt={tool.name}
             className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="absolute top-5 right-5 px-4 py-1.5 bg-black/60 dark:bg-gray-800/70 backdrop-blur-md text-white dark:text-gray-100 text-sm font-medium rounded-full">
             {tool.category}
           </div>

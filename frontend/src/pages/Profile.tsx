@@ -190,7 +190,7 @@ export default function Profile() {
 
         <Card className="p-5 sm:p-8 space-y-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center overflow-hidden border border-white/10">
+            <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden border border-white/10">
               {user.profileImage ? (
                 <img src={user.profileImage} alt={user.name} className="h-full w-full object-cover" />
               ) : (

@@ -115,7 +115,7 @@ export default function Navbar() {
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 lg:px-12 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-3">
         <Link to="/" className="flex items-center gap-3" onClick={() => setView("inicio")}>
           <img src="/logo_v1.png" alt="Toolora" className="h-8 sm:h-10 lg:h-12 w-auto" />
-          <span className="font-extrabold text-lg sm:text-2xl lg:text-3xl tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
+          <span className="font-extrabold text-lg sm:text-2xl lg:text-3xl tracking-tight text-blue-700 dark:text-blue-300">
             Toolora
           </span>
         </Link>
@@ -297,7 +297,7 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => handleMainViewChange("recomendar")}
-            className="flex items-center gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm sm:text-base font-semibold rounded-xl sm:rounded-2xl hover:from-indigo-700 hover:to-purple-700 hover:scale-[1.03] hover:shadow-lg transition-all duration-300"
+            className="flex items-center gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-blue-600 text-white text-sm sm:text-base font-semibold rounded-xl sm:rounded-2xl hover:bg-blue-700 hover:scale-[1.03] hover:shadow-lg transition-all duration-300"
           >
             <span className="hidden sm:inline">Recomendar</span>
             <span className="sm:hidden">+</span>
