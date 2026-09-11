@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { getMongoDb } from '../config/mongo';
 import { AuthenticatedRequest } from '../types';
 import { decrypt, encrypt } from '../services/encryption.service';
+import { generateRoleKey, hashRoleKey } from '../services/roleKey.service';
 
 const mapUser = (user: any) => ({
   id: user._id.toString(),
@@ -106,12 +107,26 @@ export const setUserRole = async (req: AuthenticatedRequest, res: Response) => {
     const isOwner = role === 'owner';
     const isAdmin = role === 'admin' || role === 'owner';
     const isModerator = role === 'moderator';
+    const roleKey = isAdmin ? generateRoleKey() : null;
 
     await users.updateOne({ _id: objectId }, {
-      $set: { is_owner: isOwner, is_admin: isAdmin, is_moderator: isModerator }
+      $set: {
+        role,
+        role_key_hash: roleKey ? hashRoleKey(roleKey) : null,
+      },
+      $unset: {
+        is_owner: '',
+        is_admin: '',
+        is_moderator: '',
+      },
     });
 
-    return res.json({ message: 'Cargo atualizado com sucesso.', userId: targetUserId, role });
+    return res.json({
+      message: 'Cargo atualizado com sucesso.',
+      userId: targetUserId,
+      role,
+      ...(roleKey ? { roleKey } : {}),
+    });
   } catch {
     return res.status(500).json({ error: 'Erro interno ao atualizar cargo.' });
   }

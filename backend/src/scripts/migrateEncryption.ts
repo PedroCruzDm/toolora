@@ -2,6 +2,13 @@ import 'dotenv/config';
 import { getMongoDb } from '../config/mongo';
 import { decrypt, encrypt, hashForLookup, isEncrypted } from '../services/encryption.service';
 
+const resolveStoredRole = (user: any) => {
+  if (user.role === 'owner' || user.is_owner) return 'owner';
+  if (user.role === 'admin' || user.is_admin) return 'admin';
+  if (user.role === 'moderator' || user.is_moderator) return 'moderator';
+  return 'user';
+};
+
 const migrateUsers = async () => {
   const db = await getMongoDb();
   const users = db.collection('users');
@@ -14,7 +21,8 @@ const migrateUsers = async () => {
     const banReason = decrypt(user.ban_reason_encrypted ?? user.ban_reason);
 
     if (!email || !name) continue;
-    if (isEncrypted(user.email_encrypted) && isEncrypted(user.username_encrypted)) continue;
+    const hasLegacyRoleFlags = user.is_owner !== undefined || user.is_admin !== undefined || user.is_moderator !== undefined;
+    if (isEncrypted(user.email_encrypted) && isEncrypted(user.username_encrypted) && user.role && !hasLegacyRoleFlags) continue;
 
     await users.updateOne(
       { _id: user._id },
@@ -25,12 +33,16 @@ const migrateUsers = async () => {
           username_encrypted: encrypt(name),
           profile_image_encrypted: encrypt(profileImage),
           ban_reason_encrypted: encrypt(banReason),
+          role: resolveStoredRole(user),
         },
         $unset: {
           email: '',
           username: '',
           profile_image: '',
           ban_reason: '',
+          is_owner: '',
+          is_admin: '',
+          is_moderator: '',
         },
       }
     );

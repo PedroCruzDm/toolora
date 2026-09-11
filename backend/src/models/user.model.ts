@@ -1,5 +1,7 @@
 export interface User {
 	id: number;
+	role: 'owner' | 'admin' | 'moderator' | 'user';
+	role_key_hash?: string | null;
 	username: string;
 	email: string;
 	password: string;

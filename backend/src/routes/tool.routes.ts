@@ -2,27 +2,12 @@ import { Router } from 'express';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { adminMiddleware } from '../middlewares/roleMiddleware';
 import { moderatorMiddleware } from '../middlewares/roleMiddleware';
-import {
-  createTool,
-  listApprovedTools,
-  listMyTools,
-  likeTool,
-  favoriteTool,
-  listMyToolInteractions,
-  listMyFavoriteTools,
-  listPendingTools,
-  listReviewedTools,
-  approveTool,
-  rejectTool,
-  updateToolScreenshot,
-  uploadToolImage
-} from '../controller/toolMongoController';
+import { createTool, listApprovedTools, listMyTools, likeTool, favoriteTool, listMyToolInteractions,  listMyFavoriteTools, listPendingTools, listReviewedTools, approveTool, rejectTool, updateToolScreenshot, uploadToolImage } from '../controller/toolMongoController';
 import { uploadImage } from '../middlewares/uploadMiddleware';
 
 const router = Router();
 
-// Público
-router.get('/', listApprovedTools);
+router.get('/', listApprovedTools); // Público
 
 // Usuário logado
 router.post('/', authMiddleware, createTool);

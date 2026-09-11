@@ -154,15 +154,40 @@ export const listApprovedTools = async (_req: Request, res: Response) => {
   try {
     const toolCollection = await getToolCollection();
     
-    // Create index if it doesn't exist for faster queries
-    await toolCollection.createIndex({ status: 1, blockedByOwner: 1, approvedAt: -1 });
-    
     const rows = await toolCollection
-      .find({ status: 'approved', blockedByOwner: false })
+      .find(
+        { status: 'approved', blockedByOwner: false },
+        {
+          projection: {
+            id: 1,
+            nameEncrypted: 1,
+            name: 1,
+            descriptionEncrypted: 1,
+            description: 1,
+            screenshotEncrypted: 1,
+            screenshot: 1,
+            urlEncrypted: 1,
+            url: 1,
+            categoryEncrypted: 1,
+            category: 1,
+            tagsEncrypted: 1,
+            tags: 1,
+            likesCount: 1,
+            status: 1,
+            approvedAt: 1,
+            blockedByOwner: 1,
+            blockedReason: 1,
+            blockedAt: 1,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        }
+      )
       .sort({ approvedAt: -1, createdAt: -1 })
-      .limit(50) // Reduce limit for faster response
+      .limit(50)
       .toArray();
 
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
     return res.json(rows.map(toToolResponse));
   } catch (error) {
     console.error('Error fetching approved tools:', error);

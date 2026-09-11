@@ -8,6 +8,7 @@ import authRoutes from './src/routes/auth.routes';
 import adminRoutes from './src/routes/admin.routes';
 import messageRoutes from './src/routes/message.routes';
 import toolRoutes from './src/routes/tool.routes';
+import { mongoInputMiddleware } from './src/middlewares/mongoInputMiddleware';
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.options('*', cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+app.use(mongoInputMiddleware);
 app.use('/uploads', express.static(uploadsRootDir));
 
 app.use('/api/auth', authRoutes);

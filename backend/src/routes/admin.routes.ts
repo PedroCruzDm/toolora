@@ -20,16 +20,14 @@ router.get('/users/:id/stats', authMiddleware, moderatorMiddleware, rateLimits.m
 router.post('/requests', authMiddleware, moderatorMiddleware, rateLimits.moderation('create_request'), auditMiddleware(AuditAction.MODERATION_REQUEST_CREATED), createModerationRequest);
 router.get('/requests', authMiddleware, moderatorMiddleware, rateLimits.management('list_requests'), auditMiddleware(AuditAction.MODERATION_REQUEST_LISTED), listModerationRequests);
 router.patch('/requests/:id/approve', authMiddleware, ownerMiddleware, rateLimits.sensitive('review_request'), auditMiddleware(AuditAction.MODERATION_REQUEST_REVIEWED),
-  (req, res) => {
-    req.params.action = 'approve';
+  (req, res) => { req.params.action = 'approve';
     return reviewModerationRequest(req, res);
   }
 );
 
 router.patch('/requests/:id/reject', authMiddleware, ownerMiddleware,
   rateLimits.sensitive('review_request'), auditMiddleware(AuditAction.MODERATION_REQUEST_REVIEWED),
-  (req, res) => {
-    req.params.action = 'reject';
+  (req, res) => { req.params.action = 'reject';
     return reviewModerationRequest(req, res);
   }
 );

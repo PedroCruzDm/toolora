@@ -1,22 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
 
+export type AppRole = 'owner' | 'admin' | 'moderator' | 'user';
+
 type JwtRolePayload = {
   userId?: string;
   email?: string;
-  role?: 'owner' | 'admin' | 'moderator' | 'user';
+  role?: AppRole;
   isOwner?: boolean;
   isAdmin?: boolean;
   isModerator?: boolean;
 };
 
-const rolePriority: Record<'owner' | 'admin' | 'moderator' | 'user', number> = {
+const rolePriority: Record<AppRole, number> = {
   owner: 4,
   admin: 3,
   moderator: 2,
   user: 1,
 };
 
-const resolveRole = (user: JwtRolePayload): 'owner' | 'admin' | 'moderator' | 'user' => {
+export const resolveRole = (user: JwtRolePayload): AppRole => {
   if (user.role) return user.role;
   if (user.isOwner) return 'owner';
   if (user.isAdmin) return 'admin';

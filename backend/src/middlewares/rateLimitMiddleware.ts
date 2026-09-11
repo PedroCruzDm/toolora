@@ -14,11 +14,10 @@ const store = new Map<string, StoredRequest>();
 
 const getKey = (req: Request, keyPrefix: string): string => {
   const forwardedFor = req.headers['x-forwarded-for'];
-  const ipFromForward = typeof forwardedFor === 'string'
-    ? forwardedFor.split(',')[0]?.trim()
-    : '';
+  const ipFromForward = typeof forwardedFor === 'string' ? forwardedFor.split(',')[0]?.trim(): '';
   const ip = ipFromForward || req.ip || 'unknown-ip';
   const userId = (req as any).user?.userId || 'anonymous';
+
   return `${keyPrefix}:${ip}:${userId}`;
 };
 
@@ -43,6 +42,7 @@ export const createRateLimiter = (config: RateLimitConfig) => {
     if (record.timestamps.length >= maxRequests) {
       const resetTime = new Date(record.timestamps[0] + windowMs);
       res.set('Retry-After', Math.ceil((resetTime.getTime() - now) / 1000).toString());
+      
       return res.status(429).json({
         error: 'Muitas requisições. Tente novamente mais tarde.',
         retryAfter: resetTime.toISOString(),
@@ -56,6 +56,7 @@ export const createRateLimiter = (config: RateLimitConfig) => {
 
 // Preset configurations
 export const rateLimits = {
+  
   // Authentication: 8 requests per 10 minutes (per IP/user)
   auth: createRateLimiter({ windowMs: 10 * 60 * 1000, maxRequests: 8 }),
 

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { getMongoDb } from '../config/mongo';
+import { generateRoleKey, hashRoleKey } from '../services/roleKey.service';
 
 async function main() {
   const name = process.env.ADMIN_NAME;
@@ -29,12 +30,13 @@ async function main() {
 
     const existing = await users.findOne({ email });
 
-    if (existing?.is_owner) {
+    if (existing?.role === 'owner' || existing?.is_owner) {
       console.log('Conta admin já existe para este email. Nenhuma alteração foi feita.');
       return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
+    const roleKey = generateRoleKey();
 
     if (existing) {
       await users.updateOne(
@@ -43,22 +45,21 @@ async function main() {
           $set: {
             username: name,
             password: hashedPassword,
-            is_owner: true,
-            is_admin: true,
-            is_moderator: false,
+            role: 'owner',
+            role_key_hash: hashRoleKey(roleKey),
             is_banned: false,
           }
         }
       );
       console.log('Usuário existente promovido a admin com senha atualizada.');
+      console.log(`ROLE_KEY (guarde com segurança): ${roleKey}`);
     } else {
       await users.insertOne({
         username: name,
         email,
         password: hashedPassword,
-        is_owner: true,
-        is_admin: true,
-        is_moderator: false,
+        role: 'owner',
+        role_key_hash: hashRoleKey(roleKey),
         is_banned: false,
         ban_reason: null,
         banned_at: null,
@@ -66,6 +67,7 @@ async function main() {
         created_at: new Date(),
       });
       console.log('Conta admin criada com sucesso.');
+      console.log(`ROLE_KEY (guarde com segurança): ${roleKey}`);
     }
   } catch (error) {
     console.error('Falha ao criar admin:', (error as Error).message);

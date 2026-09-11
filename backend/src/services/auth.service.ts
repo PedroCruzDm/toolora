@@ -5,6 +5,10 @@ const REFRESH_BLACKLIST_COLLECTION = 'refresh_token_blacklist';
 
 type BlacklistReason = 'logout' | 'rotation' | 'replay' | 'forced_revoke';
 
+export const MAX_LOGIN_ATTEMPTS = 5;
+export const LOGIN_LOCK_MINUTES = 15;
+const LOGIN_LOCK_MS = LOGIN_LOCK_MINUTES * 60 * 1000;
+
 type BlacklistedRefreshToken = {
 	tokenHash: string;
 	userId: string;
@@ -15,6 +19,42 @@ type BlacklistedRefreshToken = {
 };
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
+
+type LoginAttemptState = { failedAttempts?: number; loginLockedUntil?: Date; };
+
+export const getLoginLock = (user: LoginAttemptState | null) => {
+	const lockedUntil = user?.loginLockedUntil;
+	if (lockedUntil && lockedUntil.getTime() > Date.now()) {
+		return lockedUntil;
+	}
+
+	return null;
+};
+
+export const registerFailedLogin = async (users: any, userId: unknown) => {
+	const now = new Date();
+	const user = await users.findOne({ _id: userId }, { projection: { failedAttempts: 1, loginLockedUntil: 1 } });
+	const failedAttempts = Number(user?.failedAttempts ?? 0) + 1;
+	const shouldLock = failedAttempts >= MAX_LOGIN_ATTEMPTS;
+	const loginLockedUntil = shouldLock ? new Date(now.getTime() + LOGIN_LOCK_MS) : null;
+
+	await users.updateOne(
+		{ _id: userId },
+		{
+			$set: {
+				failedAttempts: shouldLock ? 0 : failedAttempts,
+				loginLockedUntil,
+			},
+		}
+	);
+
+	return { failedAttempts, loginLockedUntil };
+};
+
+export const clearFailedLogins = async (users: any, userId: unknown) => {
+	await users.updateOne({ _id: userId }, { $unset: { failedAttempts: '', loginLockedUntil: '' } });
+
+};
 
 export const ensureRefreshTokenBlacklistIndexes = async (db: Db) => {
 	const collection = db.collection<BlacklistedRefreshToken>(REFRESH_BLACKLIST_COLLECTION);
@@ -34,6 +74,7 @@ export const blacklistRefreshToken = async (
 		reason: BlacklistReason;
 	}
 ) => {
+
 	const collection = db.collection<BlacklistedRefreshToken>(REFRESH_BLACKLIST_COLLECTION);
 
 	try {
@@ -64,4 +105,3 @@ export const blacklistAllUserTokensByVersionBump = async (db: Db, userId: string
 		{ $inc: { token_version: 1 } }
 	);
 };
-

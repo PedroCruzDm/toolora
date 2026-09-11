@@ -1,16 +1,5 @@
 import { Router } from 'express';
-import {
-	register,
-	login,
-	refreshSession,
-	logout,
-	updateUser,
-	deleteUser,
-	listUsers,
-	currentSession,
-	requestPasswordReset,
-	confirmPasswordReset,
-} from '../controller/authMongoController';
+import { register, login, refreshSession, logout, updateUser, deleteUser, listUsers, currentSession, requestPasswordReset, confirmPasswordReset } from '../controller/authMongoController';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { adminMiddleware } from '../middlewares/roleMiddleware';
 import { rateLimits } from '../middlewares/rateLimitMiddleware';

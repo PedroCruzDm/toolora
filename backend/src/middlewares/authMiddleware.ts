@@ -3,10 +3,12 @@ import { ObjectId } from 'mongodb';
 import { getMongoDb } from '../config/mongo';
 import { verifyAccessToken } from '../services/jwt.service';
 import { decrypt } from '../services/encryption.service';
+import { resolveRole, type AppRole } from './roleMiddleware';
 
 const ACCESS_COOKIE_NAME = 'access_token';
 
 const extractAccessToken = (req: Request): string | null => {
+  
   // Cookie (prioridade principal em produção)
   const cookieToken = (req as any).cookies?.[ACCESS_COOKIE_NAME];
   if (typeof cookieToken === 'string' && cookieToken.length > 20) {
@@ -16,6 +18,7 @@ const extractAccessToken = (req: Request): string | null => {
   // Bearer token (útil para Postman, mobile, etc.)
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
+    
     return authHeader.split(' ')[1];
   }
 
@@ -23,7 +26,7 @@ const extractAccessToken = (req: Request): string | null => {
 };
 
 export const authMiddleware = async (
-  req: Request,
+req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -60,13 +63,20 @@ export const authMiddleware = async (
     }
 
     // Objeto user limpo e tipado no request
+    const role = resolveRole({
+      role: user.role as AppRole | undefined,
+      isOwner: user.is_owner,
+      isAdmin: user.is_admin,
+      isModerator: user.is_moderator,
+    });
+
     (req as any).user = {
       userId: user._id.toString(),
       email: decrypt(user.email_encrypted ?? user.email) ?? '',
-      role: user.is_owner ? 'owner' : user.is_admin ? 'admin' : user.is_moderator ? 'moderator' : 'user',
-      isOwner: Boolean(user.is_owner),
-      isAdmin: Boolean(user.is_admin || user.is_owner),
-      isModerator: Boolean(user.is_moderator),
+      role,
+      isOwner: role === 'owner',
+      isAdmin: role === 'owner' || role === 'admin',
+      isModerator: role === 'owner' || role === 'admin' || role === 'moderator',
       isBanned: Boolean(user.is_banned),
       tokenVersion: dbTokenVersion,
     };

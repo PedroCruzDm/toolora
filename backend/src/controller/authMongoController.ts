@@ -6,8 +6,9 @@ import { z } from 'zod';
 import { getMongoDb } from '../config/mongo';
 import { sendPasswordResetEmail } from '../services/mailer.service';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, JwtFlags } from '../services/jwt.service';
-import { ensureRefreshTokenBlacklistIndexes, blacklistRefreshToken, isRefreshTokenBlacklisted } from '../services/auth.service';
+import { ensureRefreshTokenBlacklistIndexes, blacklistRefreshToken, isRefreshTokenBlacklisted, clearFailedLogins, getLoginLock, registerFailedLogin, LOGIN_LOCK_MINUTES } from '../services/auth.service';
 import { decrypt, encrypt, hashForLookup } from '../services/encryption.service';
+import { resolveRole, type AppRole } from '../middlewares/roleMiddleware';
 
 const ACCESS_COOKIE_NAME = 'access_token';
 const REFRESH_COOKIE_NAME = 'refresh_token';
@@ -53,10 +54,10 @@ const mapAuthUser = (user: any) => ({
   id: user._id.toString(),
   name: decrypt(user.username_encrypted ?? user.username) ?? '',
   email: decrypt(user.email_encrypted ?? user.email) ?? '',
-  role: user.is_owner ? 'owner' : user.is_admin ? 'admin' : user.is_moderator ? 'moderator' : 'user',
-  isOwner: Boolean(user.is_owner),
-  isAdmin: Boolean(user.is_admin),
-  isModerator: Boolean(user.is_moderator),
+  role: resolveRole({ role: user.role as AppRole | undefined, isOwner: user.is_owner, isAdmin: user.is_admin, isModerator: user.is_moderator }),
+  isOwner: resolveRole({ role: user.role as AppRole | undefined, isOwner: user.is_owner, isAdmin: user.is_admin, isModerator: user.is_moderator }) === 'owner',
+  isAdmin: ['owner', 'admin'].includes(resolveRole({ role: user.role as AppRole | undefined, isOwner: user.is_owner, isAdmin: user.is_admin, isModerator: user.is_moderator })),
+  isModerator: ['owner', 'admin', 'moderator'].includes(resolveRole({ role: user.role as AppRole | undefined, isOwner: user.is_owner, isAdmin: user.is_admin, isModerator: user.is_moderator })),
   isBanned: Boolean(user.is_banned),
   profileImage: decrypt(user.profile_image_encrypted ?? user.profile_image) ?? null,
 });
@@ -64,6 +65,7 @@ const mapAuthUser = (user: any) => ({
 const normalizeEmail = (email: unknown) => (typeof email === 'string' ? email.trim().toLowerCase() : '');
 const getUserEmail = (user: any) => decrypt(user.email_encrypted ?? user.email) ?? '';
 const getUserName = (user: any) => decrypt(user.username_encrypted ?? user.username) ?? '';
+const getUserRole = (user: any): AppRole => resolveRole({ role: user.role, isOwner: user.is_owner, isAdmin: user.is_admin, isModerator: user.is_moderator });
 
 const authCookieOptions: CookieOptions = {
   httpOnly: true,
@@ -124,9 +126,9 @@ const generateResetCode = () => randomBytes(3).toString('hex').toUpperCase();
 const hashResetCode = (code: string) => createHash('sha256').update(code).digest('hex');
 
 const getUserFlags = (user: any): JwtFlags => ({
-  isOwner: Boolean(user.is_owner),
-  isAdmin: Boolean(user.is_admin),
-  isModerator: Boolean(user.is_moderator),
+  isOwner: getUserRole(user) === 'owner',
+  isAdmin: ['owner', 'admin'].includes(getUserRole(user)),
+  isModerator: ['owner', 'admin', 'moderator'].includes(getUserRole(user)),
 });
 
 const issueUserTokens = (user: any) => {
@@ -190,11 +192,10 @@ export const register = async (req: Request, res: Response) => {
       email_encrypted: encrypt(normalizedEmail),
       email_hash: hashForLookup(normalizedEmail),
       password: hashedPassword,
+      role: 'user',
+      role_key_hash: null,
       profile_image_encrypted: encrypt(profileImage ?? null),
       token_version: 0,
-      is_owner: false,
-      is_admin: false,
-      is_moderator: false,
       is_banned: false,
       ban_reason: null,
       banned_at: null,
@@ -238,8 +239,28 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
+    const loginLockedUntil = getLoginLock(user as { failedAttempts?: number; loginLockedUntil?: Date });
+    if (loginLockedUntil) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((loginLockedUntil.getTime() - Date.now()) / 1000));
+      res.set('Retry-After', String(retryAfterSeconds));
+      return res.status(429).json({
+        error: `Muitas tentativas inválidas. Tente novamente em ${LOGIN_LOCK_MINUTES} minutos.`,
+        retryAfter: loginLockedUntil.toISOString(),
+      });
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      const attemptState = await registerFailedLogin(users, user._id);
+      if (attemptState.loginLockedUntil) {
+        const retryAfterSeconds = Math.max(1, Math.ceil((attemptState.loginLockedUntil.getTime() - Date.now()) / 1000));
+        res.set('Retry-After', String(retryAfterSeconds));
+        return res.status(429).json({
+          error: `Limite de tentativas atingido. Tente novamente em ${LOGIN_LOCK_MINUTES} minutos.`,
+          retryAfter: attemptState.loginLockedUntil.toISOString(),
+        });
+      }
+
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
@@ -247,6 +268,7 @@ export const login = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Sua conta está bloqueada.' });
     }
 
+    await clearFailedLogins(users, user._id);
     const { accessToken, refreshToken } = issueUserTokens(user);
     setAuthCookies(res, accessToken, refreshToken);
 
