@@ -50,6 +50,42 @@ type ToggleFavoriteResponse = {
   message: string;
 };
 
+const TOOLS_CACHE_KEY = "toolora-approved-tools-cache";
+const TOOLS_CACHE_TTL = 60_000;
+
+type ToolsCache = {
+  savedAt: number;
+  tools: ApprovedToolApiResponse[];
+};
+
+const readToolsCache = (): ApprovedToolApiResponse[] | null => {
+  try {
+    const stored = sessionStorage.getItem(TOOLS_CACHE_KEY);
+    if (!stored) return null;
+
+    const cache = JSON.parse(stored) as ToolsCache;
+    if (!Array.isArray(cache.tools) || Date.now() - cache.savedAt > TOOLS_CACHE_TTL) {
+      sessionStorage.removeItem(TOOLS_CACHE_KEY);
+      return null;
+    }
+
+    return cache.tools;
+  } catch {
+    return null;
+  }
+};
+
+const writeToolsCache = (tools: ApprovedToolApiResponse[]) => {
+  try {
+    sessionStorage.setItem(
+      TOOLS_CACHE_KEY,
+      JSON.stringify({ savedAt: Date.now(), tools } satisfies ToolsCache)
+    );
+  } catch {
+    // Cache is optional and must never block the public tools list.
+  }
+};
+
 type HomeProps = {
   forcedView?: HomeView;
 };
@@ -89,21 +125,35 @@ export default function Home({ forcedView }: HomeProps) {
   }, []);
 
   useEffect(() => {
+    const cachedTools = readToolsCache();
+    if (cachedTools) {
+      setTools(cachedTools.map((tool) => ({
+        id: String(tool.id),
+        name: tool.name,
+        description: tool.description,
+        screenshot: tool.screenshot ?? "https://picsum.photos/seed/toolora/800/600",
+        url: tool.url,
+        category: tool.category,
+        tags: tool.tags ?? [],
+        likesCount: Number(tool.likes_count ?? 0),
+        isLiked: false,
+        isFavorited: false,
+        status: tool.status,
+        approved_at: tool.approved_at,
+      })));
+      setLoading(false);
+    }
+
     const fetchApprovedTools = async () => {
       try {
-        // Wake up the Render backend by pinging health endpoint first
-        try {
-          await api.get("/health", { timeout: 30000 });
-        } catch (healthError) {
-          console.warn("Health check failed, proceeding anyway:", healthError);
-        }
-
         const [toolsResponse, interactionsResponse] = await Promise.all([
           api.get<ApprovedToolApiResponse[]>("/tools"),
           getAuthToken()
             ? api.get<ToolInteractionsResponse>("/tools/interactions")
             : Promise.resolve({ data: { likedToolIds: [], favoritedToolIds: [] } }),
         ]);
+
+          writeToolsCache(toolsResponse.data);
 
         const likedSet = new Set((interactionsResponse.data.likedToolIds ?? []).map(Number));
         const favoritedSet = new Set((interactionsResponse.data.favoritedToolIds ?? []).map(Number));
