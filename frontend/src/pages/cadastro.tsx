@@ -5,6 +5,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { saveAuthSession } from "@/lib/auth";
+import { useHomeView } from "@/lib/homeView";
 import { passwordStrength, isCommonPassword, isStrongEnough } from "@/lib/passwordUtils";
 
 type RegisterResponse = {
@@ -19,6 +20,7 @@ type RegisterResponse = {
 
 export default function Cadastro() {
 	const navigate = useNavigate();
+	const { setView } = useHomeView();
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
@@ -60,6 +62,7 @@ export default function Cadastro() {
 			});
 
 			saveAuthSession(response.data.token, response.data.user);
+			setView("inicio");
 			toast.success("Conta criada com sucesso!");
 			navigate("/");
 		} catch (error) {

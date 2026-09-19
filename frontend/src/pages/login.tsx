@@ -5,6 +5,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { saveAuthSession } from "@/lib/auth";
+import { useHomeView } from "@/lib/homeView";
 
 type LoginResponse = {
 	token: string;
@@ -19,6 +20,7 @@ type LoginResponse = {
 
 export default function Login() {
 	const navigate = useNavigate();
+	const { setView } = useHomeView();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,6 +41,7 @@ export default function Login() {
 			});
 
 			saveAuthSession(response.data.token, response.data.user);
+			setView("inicio");
 			toast.success("Login realizado com sucesso!");
 			navigate("/");
 		} catch (error) {
