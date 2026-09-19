@@ -1,5 +1,5 @@
 import { ToolCard } from "@/components/ui/card";
-import AdSidebar from "@/components/common/AdSidebar";
+// import AdSidebar from "@/components/common/AdSidebar";
 import { Tool } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -452,9 +452,11 @@ export default function Home({ forcedView }: HomeProps) {
             )}
           </div>
 
+          {/* Anúncios AdSense desativados temporariamente para evitar requests pagead.
           <div className="lg:col-span-3 xl:col-span-2 hidden lg:block">
             <AdSidebar />
           </div>
+          */}
         </div>
       </section>
 
