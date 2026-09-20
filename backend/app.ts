@@ -9,11 +9,11 @@ import adminRoutes from './src/routes/admin.routes';
 import messageRoutes from './src/routes/message.routes';
 import toolRoutes from './src/routes/tool.routes';
 import { mongoInputMiddleware } from './src/middlewares/mongoInputMiddleware';
+import { globalLimiter, authLimiter, createToolLimiter } from './src/middlewares/rateLimiter';
 
 dotenv.config();
 
 const app = express();
-const { globalLimiter, authLimiter, createToolLimiter } = require('./src/middlewares/rateLimiter');
 
 app.use(globalLimiter);
 
