@@ -133,6 +133,9 @@ export const updateAuthUser = (user: StoredAuthUser) => {
 export const clearAuthSession = () => {
   removeStoredValue(AUTH_TOKEN_KEY);
   removeStoredValue(AUTH_USER_KEY);
+  if (typeof window !== "undefined") {
+    window.sessionStorage.removeItem("toolora-home-view");
+  }
   dispatchAuthChange();
 };
 

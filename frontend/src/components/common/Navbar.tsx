@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Moon, Sun, UserCircle2, ChevronDown, Settings, LogOut, CircleHelp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
 import { AuthSession, clearAuthSession, hasAdminAccess, hasModeratorAccess, readAuthSession, updateAuthUser } from "@/lib/auth";
 import { useLocation } from "react-router-dom";
 import api from "@/services/api";
@@ -45,6 +46,12 @@ export default function Navbar() {
       const localSession = readAuthSession();
       setAuthUser(localSession);
 
+      if (!localSession) {
+        setView("inicio");
+        if (location.pathname !== "/") navigate("/", { replace: true });
+        return;
+      }
+
       try {
         const response = await api.get<{ user: { name?: string; email: string; isOwner: boolean; isAdmin: boolean; isModerator: boolean; profileImage?: string | null } }>("/auth/me");
         const user = response.data.user;
@@ -59,8 +66,18 @@ export default function Navbar() {
 
         setAuthUser(session);
         updateAuthUser(user);
-      } catch {
-        setAuthUser(localSession ?? null);
+      } catch (error) {
+        const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+
+        if (status === 401 || status === 403) {
+          clearAuthSession();
+          setAuthUser(null);
+          setView("inicio");
+          if (location.pathname !== "/") navigate("/", { replace: true });
+          return;
+        }
+
+        setAuthUser(localSession);
       }
     };
 
@@ -93,8 +110,8 @@ export default function Navbar() {
     clearAuthSession();
     setAuthUser(null);
     setIsMenuOpen(false);
-    setView("login");
-    if (location.pathname !== "/") navigate("/");
+    setView("inicio");
+    if (location.pathname !== "/") navigate("/", { replace: true });
   };
 
   const handleMainViewChange = (next: HomeView) => {
