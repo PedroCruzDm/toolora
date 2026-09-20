@@ -23,10 +23,7 @@ const registerSchema = z.object({
   profileImage: z.string().trim().max(5_000_000).optional().nullable(),
 });
 
-const loginSchema = z.object({
-  email: z.string().trim().email(),
-  password: z.string().min(1),
-});
+const loginSchema = z.object({ email: z.string().trim().email(), password: z.string().min(1) });
 
 const updateUserSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -36,13 +33,9 @@ const updateUserSchema = z.object({
   profileImage: z.string().trim().max(5_000_000).optional().nullable(),
 });
 
-const deleteUserSchema = z.object({
-  password: z.string().min(1),
-});
+const deleteUserSchema = z.object({ password: z.string().min(1) });
 
-const requestPasswordResetSchema = z.object({
-  email: z.string().trim().email(),
-});
+const requestPasswordResetSchema = z.object({ email: z.string().trim().email() });
 
 const confirmPasswordResetSchema = z.object({
   email: z.string().trim().email(),
@@ -67,23 +60,12 @@ const getUserEmail = (user: any) => decrypt(user.email_encrypted ?? user.email) 
 const getUserName = (user: any) => decrypt(user.username_encrypted ?? user.username) ?? '';
 const getUserRole = (user: any): AppRole => resolveRole({ role: user.role, isOwner: user.is_owner, isAdmin: user.is_admin, isModerator: user.is_moderator });
 
-const authCookieOptions: CookieOptions = {
-  httpOnly: true,
-  secure: true,
-  sameSite: 'strict',
-  path: '/',
-};
+const authCookieOptions: CookieOptions = { httpOnly: true, secure: true, sameSite: 'strict', path: '/' };
 
 const setAuthCookies = (res: Response, accessToken: string, refreshToken: string) => {
-  res.cookie(ACCESS_COOKIE_NAME, accessToken, {
-    ...authCookieOptions,
-    maxAge: ACCESS_COOKIE_MAX_AGE,
-  });
+  res.cookie(ACCESS_COOKIE_NAME, accessToken, { ...authCookieOptions, maxAge: ACCESS_COOKIE_MAX_AGE });
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, { ...authCookieOptions, maxAge: REFRESH_COOKIE_MAX_AGE });
 
-  res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
-    ...authCookieOptions,
-    maxAge: REFRESH_COOKIE_MAX_AGE,
-  });
 };
 
 const clearAuthCookies = (res: Response) => {
@@ -103,7 +85,8 @@ const getPasswordScore = (password: string) => {
 
 const commonPasswords = new Set([
   '123456', 'password', '12345678', 'qwerty', '123456789', '12345', '1234', '111111', '1234567', 'dragon',
-  'baseball', 'abc123', 'football', 'monkey', 'letmein', 'shadow', 'master', '666666', 'qwertyuiop', '123321'
+  'baseball', 'abc123', 'football', 'monkey', 'letmein', 'shadow', 'master', '666666', 'qwertyuiop', '123321',
+  'senha123', 'senha@123', 'senha1234', 'senha12345', 'senha123456', 'senha1234567', 'senha12345678', 'senha123456789'
 ]);
 
 const assertStrongPassword = (password: string) => {
@@ -112,11 +95,11 @@ const assertStrongPassword = (password: string) => {
   }
 
   if (commonPasswords.has(password)) {
-    return 'Senha muito comum. Escolha uma senha mais forte.';
+    return 'Senha muito comum. Tente uma senha mais forte.';
   }
 
   if (getPasswordScore(password) < 3) {
-    return 'Senha fraca. Use uma senha mais forte (maiúscula, minúscula, número e símbolo).';
+    return 'Senha muito fraca. Use uma senha mais forte (maiúscula, minúscula, número e símbolo).';
   }
 
   return null;
@@ -140,11 +123,8 @@ const issueUserTokens = (user: any) => {
   const refreshJti = randomUUID();
   const refreshToken = generateRefreshToken(userId, flags, tokenVersion, refreshJti);
 
-  return {
-    accessToken,
-    refreshToken,
-    refreshJti,
-  };
+  return { accessToken, refreshToken, refreshJti };
+
 };
 
 const getRefreshCookie = (req: Request) => {
@@ -181,6 +161,7 @@ export const register = async (req: Request, res: Response) => {
     const existingUser = await users.findOne({
       $or: [{ email_hash: hashForLookup(normalizedEmail) }, { email: normalizedEmail }],
     });
+
     if (existingUser) {
       return res.status(409).json({ error: 'Email já cadastrado.' });
     }
@@ -272,10 +253,8 @@ export const login = async (req: Request, res: Response) => {
     const { accessToken, refreshToken } = issueUserTokens(user);
     setAuthCookies(res, accessToken, refreshToken);
 
-    return res.json({
-      token: accessToken,
-      user: mapAuthUser(user),
-    });
+    return res.json({ token: accessToken, user: mapAuthUser(user) });
+  
   } catch {
     return res.status(500).json({ error: 'Erro interno ao fazer login.' });
   }
@@ -448,20 +427,11 @@ export const updateUser = async (req: Request, res: Response) => {
 
     await users.updateOne({ _id: objectId }, updateQuery);
 
-    if (shouldBumpTokenVersion) {
-      clearAuthCookies(res);
-    }
+    if (shouldBumpTokenVersion) { clearAuthCookies(res); }
 
     return res.json({
-      message: shouldBumpTokenVersion
-        ? 'Conta atualizada com sucesso. Faça login novamente.'
-        : 'Conta atualizada com sucesso.',
-      user: {
-        ...mapAuthUser({
-          ...user,
-          ...updates,
-          _id: objectId,
-        }),
+      message: shouldBumpTokenVersion ? 'Conta atualizada com sucesso. Faça login novamente.' : 'Conta atualizada com sucesso.',
+      user: { ...mapAuthUser({ ...user, ...updates, _id: objectId }),
         name,
         email: normalizedEmail,
         profileImage: profileImage ?? decrypt(user.profile_image_encrypted ?? user.profile_image) ?? null,
@@ -513,7 +483,6 @@ export const listUsers = async (_req: Request, res: Response) => {
   try {
     const db = await getMongoDb();
     const users = db.collection('users');
-
     const rows = await users.find({}).sort({ created_at: -1 }).toArray();
 
     return res.json(rows.map(mapAuthUser));
@@ -637,9 +606,7 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
       expiresAt: { $gt: new Date() },
     });
 
-    if (!token) {
-      return res.status(400).json({ error: 'Código inválido ou expirado.' });
-    }
+    if (!token) { return res.status(400).json({ error: 'Código inválido ou expirado.' }); }
 
     const user = await users.findOne({ _id: new ObjectId(token.userId) });
     if (!user || getUserEmail(user) !== email) {

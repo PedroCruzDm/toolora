@@ -13,6 +13,9 @@ import { mongoInputMiddleware } from './src/middlewares/mongoInputMiddleware';
 dotenv.config();
 
 const app = express();
+const { globalLimiter, authLimiter, createToolLimiter } = require('./src/middlewares/rateLimiter');
+
+app.use(globalLimiter);
 
 const defaultOrigins = [
   'http://localhost:5173',
@@ -24,19 +27,17 @@ const defaultOrigins = [
   'https://www.toolora.com.br',
 ];
 
-const extraOrigins = process.env.FRONTEND_ORIGINS
-  ? process.env.FRONTEND_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
-  : [];
-
+const extraOrigins = process.env.FRONTEND_ORIGINS ? process.env.FRONTEND_ORIGINS.split(',').map(s => s.trim()).filter(Boolean): [];
 const allowedOrigins = Array.from(new Set([...defaultOrigins, ...extraOrigins]));
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // If no origin (same-site or server-to-server), allow
+  origin: (origin, callback) => { // If no origin (same-site or server-to-server), allow
     if (!origin) return callback(null, true);
+
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   },
+  
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -53,9 +54,11 @@ app.use(cookieParser());
 app.use(mongoInputMiddleware);
 app.use('/uploads', express.static(uploadsRootDir));
 
+app.use('/api/auth', authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/management', adminRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/tools', createToolLimiter);
 app.use('/api/tools', toolRoutes);
 
 app.get('/health', (req, res) => {
